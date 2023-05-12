@@ -4,7 +4,7 @@
 cd ~/Users/jakce/chrome-dino/
 - conda --version
 - conda update conda -y
-- conda --name chrome-dino -y
+- conda create --name chrome-dino -y
 - conda activate chrome-dino
 - conda info --envs
 - conda install -c conda-forge jupyterlab -y
