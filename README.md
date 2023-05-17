@@ -4,8 +4,6 @@
 
 ## Overview
 
-Use Pytorch, stable-baselines3, etc. to build a model to play chrome://dino with reinforcement learning and optical character recognition.
-
-Developing on Windows with Python 3.10 and Jupyter-Lab
+Use PyTorch, Stable Baselines, Tesseract-OCR, etc. to build a model to play chrome://dino with reinforcement learning (DQN) and optical character recognition. 
 
 Naive 2018 version included, which used a CNN trained on human input
