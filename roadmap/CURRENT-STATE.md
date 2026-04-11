@@ -1,6 +1,6 @@
 # chrome-dino — Current State
 
-**Phase Status**: Blocked — Browser-native PPO training running (~17K/100K steps, ~36 min remaining, ep_len=127 flat)
+**Phase Status**: Blocked — Score calculation fixed (was 4x inflated). Browser-native PPO training may have finished. PPO frame-stepped (439) does NOT beat 555 target.
 
 ## What Exists
 
