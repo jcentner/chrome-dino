@@ -1,6 +1,6 @@
 # chrome-dino — Current State
 
-**Phase Status**: In Progress — v2 retraining done, browser validation pending
+**Phase Status**: Blocked: Browser validation requires ChromeDriver — start `/mnt/c/Temp/chromedriver.exe --port=9515` then run `python scripts/validate_browser.py --model models/ppo_dino_v2/best/best_model.zip --episodes 10`
 
 ## What Exists
 
