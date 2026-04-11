@@ -1,32 +1,42 @@
 # chrome-dino — Current State
 
-**Phase Status**: Blocked: v2 retraining scheduled for next session — human approved plan, no code changes remaining this session
+**Phase Status**: In Progress — v2 retraining done, browser validation pending
 
 ## What Exists
 
-- `src/env.py` — Headless Dino game environment (Gymnasium), physics from Chromium source
-- `scripts/train.py` — PPO training pipeline with parallel envs, eval callbacks
-- `scripts/evaluate.py` — Model evaluation with score statistics
-- `scripts/validate_browser.py` — Browser validation via Selenium + JS game state extraction
-- `models/ppo_dino_v1/` — Trained PPO model (best + final checkpoints)
-- `logs/ppo_dino_v1/` — TensorBoard training logs
+- `src/env.py` — Headless Dino game environment (Gymnasium), v2 with action_delay, frame_skip, speed-dependent jump
+- `scripts/train.py` — PPO training pipeline with v2 env params via CLI
+- `scripts/evaluate.py` — Model evaluation with v2 env params via CLI
+- `scripts/validate_browser.py` — Browser validation with fixed obstacle Y mapping
+- `models/ppo_dino_v2/` — Trained PPO v2 model (best + checkpoints, training ongoing)
+- `models/ppo_dino_v1/` — Archived v1 model
+- `logs/ppo_dino_v2/` — TensorBoard training logs
+- `tests/test_env_v2.py` — 30 tests for v2 env features
 - `2018-implementation/` — Archived: supervised CNN (TensorFlow)
 - `2023-implementation/` — Archived: DQN + Selenium + OCR
 - `project-history.md` — Development narrative for blog post adaptation
 - `.github/` — Copilot agents, prompts, hooks, instructions
-- `docs/` — Vision lock, architecture, reference docs
+- `docs/` — Vision lock, architecture, ADRs, reference docs
 
 ## Results
 
-### Headless Evaluation (100 episodes)
+### v2 Headless Evaluation (100 episodes, action_delay=1, frame_skip=2)
+
+| Metric | Value |
+|--------|-------|
+| Mean score | 1,710 |
+| Max score | 3,014 |
+| Min score | 712 |
+| Median score | 1,931 |
+| 90th percentile | 2,440 |
+| Training progress | 775K/2M steps (best model saved at ~575K) |
+
+### v1 Headless Evaluation (100 episodes, no delay/skip) — for comparison
 
 | Metric | Value |
 |--------|-------|
 | Mean score | 2,247 |
 | Max score | 4,729 |
-| Training time | ~40 minutes (2M steps) |
-| Random baseline | ~70 score |
-| Improvement | 13x over random |
 
 ### Browser Validation v1 (5 episodes, Chrome 147) — FAILED
 
@@ -34,53 +44,63 @@
 |--------|-------|
 | Mean score | 190 |
 | Max score | 204 |
-| Browser/Headless ratio | **8%** |
-| Verdict | **Worse than both prior implementations (2018: ~200, 2023: ~555)** |
+| Verdict | **Worse than both prior implementations** |
 
-The headless score is meaningless. The browser score of 190 is the real metric. See `docs/reference/sim-to-real-analysis.md` for full root cause analysis.
+### v2 Browser Validation — **NOT YET RUN**
 
-## What Went Wrong
+## What Was Done This Session
 
-The headless environment trained a policy that doesn't transfer to the real Chrome Dino game. Root causes identified (see analysis doc):
-
-1. **Action latency** — Trained at frame-perfect execution, deployed with 1-2 frame delay via Selenium
-2. **Missing speed-dependent jump** — Chrome's jump gets 12-28% higher as speed increases; our env jumps constant height
-3. **Observation mapping bug** — Pterodactyl Y coordinates mapped wrong in validate_browser.py
-4. **clearTime mismatch** — Trained with 500ms, Chrome uses 3000ms
-
-## Plan: v2 Retraining
-
-Priority-ordered fixes to close the sim-to-real gap:
-
-1. **Add action delay to env** — Buffer actions by 1-2 frames to simulate Selenium latency
-2. **Add frame skip** — Each env.step() advances 2-3 game frames, matching browser polling rate
-3. **Speed-dependent jump velocity** — `jump_velocity = initial - speed/10` (from Chromium source)
-4. **Fix observation mapping** — Use `ground_line = groundYPos + TREX_HEIGHT` for obstacle Y conversion
-5. **Match clearTime** — Use Chrome's 3000ms (or make configurable)
-6. **Retrain** — 2-4M timesteps with corrected env
-7. **Revalidate in browser** — Target: mean > 555 (beats 2023 DQN)
+1. **Implemented env v2 features** (ADR-001):
+   - `action_delay`: FIFO buffer delays action by N frames
+   - `frame_skip`: K internal frames per env step
+   - Speed-dependent jump velocity: `vy = 10 + speed/10` (Chromium formula)
+   - Configurable `clear_time_ms`
+2. **Fixed bugs found in review**:
+   - `_get_held_action()` now preserves speed_drop during frame skip
+   - Observation velocity normalized to avoid exceeding [-1, 1] bounds
+3. **Fixed pterodactyl Y mapping** in validate_browser.py
+4. **30 tests** covering all v2 features (all pass)
+5. **Updated documentation**: ADR-001, resolved TD-001-005, resolved OQ-001, updated architecture overview, glossary
+6. **Trained v2 model**: 2M steps with action_delay=1, frame_skip=2 (training ongoing, best checkpoint at ~575K)
+7. **Headless evaluation**: mean=1,710 (robust despite deliberate latency handicap)
 
 ## Success Target
 
-**Browser mean score > 555** — must beat the 2023 DQN implementation that was trained directly in the browser. This is the minimum bar. A good result would be mean > 1000.
+**Browser mean score > 555** — must beat the 2023 DQN implementation.
 
-## Decisions Made
+## What's Next
 
-- Headless Python environment over browser automation (100,000x faster training)
-- PPO over DQN (more stable, better for continuous speed ramp)
-- 20-dim feature vector over screen capture
-- **Browser score is the primary metric**, not headless score
-- Headless score only matters insofar as it predicts browser performance
+1. **Browser validation** — Run validate_browser.py with v2 best model. Requires:
+   - Start ChromeDriver: `/mnt/c/Temp/chromedriver.exe --port=9515`
+   - `python scripts/validate_browser.py --model models/ppo_dino_v2/best/best_model.zip --episodes 10`
+2. **Assess transfer ratio** — if headless 1,710 → browser target 555, need 32% transfer (vs v1's 8%)
+3. **If still insufficient**: Consider domain randomization (OQ-003), JS frame-stepping (OQ-002), or longer training
+4. **Update project-history.md** with v2 iteration story
+
+## Decisions Made This Session
+
+- ADR-001: action_delay=1, frame_skip=2, speed-dependent jump for v2
+- Resolved OQ-001: use both action delay and frame skip together
+- Training defaults: action_delay=1, frame_skip=2, clear_time_ms=500
+- v2 velocity normalization: clip(vy / (10 + 1.3), -1, 1)
 
 ## Blocked / Unresolved
 
-Nothing — all fixes are implementable.
+- Browser validation requires Chrome/ChromeDriver on Windows side (WSL2 setup)
+- OQ-002: JS frame-stepping as alternative — deferred pending browser validation results
+- OQ-003: Domain randomization — deferred pending browser validation results
 
 ## Files Modified This Session
 
-- `docs/reference/sim-to-real-analysis.md` — Created: root cause analysis
-- `docs/vision/VISION-LOCK.md` — v1.2: browser score as primary metric
-- `roadmap/CURRENT-STATE.md` — Revised: phase not complete
-- `project-history.md` — Updated honestly
-- `docs/reference/tech-debt.md` — Added env fidelity items
-- `docs/reference/open-questions.md` — Added approach questions
+- `src/env.py` — v2 features: action delay, frame skip, speed-dependent jump, configurable clear time
+- `scripts/train.py` — v2 CLI args
+- `scripts/evaluate.py` — v2 CLI args
+- `scripts/validate_browser.py` — Fixed obstacle Y mapping (ground_line)
+- `tests/__init__.py` — New: test package init
+- `tests/test_env_v2.py` — New: 30 tests for v2 features
+- `docs/architecture/decisions/001-env-v2-sim-to-real-fixes.md` — New: ADR
+- `docs/architecture/decisions/README.md` — ADR index updated
+- `docs/architecture/overview.md` — Updated for v2 features
+- `docs/reference/tech-debt.md` — Resolved TD-001 through TD-005
+- `docs/reference/open-questions.md` — Resolved OQ-001
+- `docs/reference/glossary.md` — Added: action delay, frame skip, sim-to-real gap
