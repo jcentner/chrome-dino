@@ -1,0 +1,7 @@
+torch
+torchvision
+gymnasium
+stable-baselines3[extra]
+tensorboard
+numpy
+opencv-python-headless
