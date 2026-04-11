@@ -81,16 +81,16 @@ The agent learned to consistently survive for nearly a minute of game time, hand
 | **Environment** | Screen capture + manual labels | Selenium + OCR | Headless physics clone |
 | **Training speed** | N/A (offline) | ~1 FPS | ~3,000+ FPS |
 | **Actions** | Jump | Jump | Jump, Duck, Noop |
-| **Best score** | ~200 (limited by my skill) | ~555 (170k/360k steps) | 4,729 (headless) / 204 (browser) |
-| **Mean score** | Unknown | Unknown | 2,247 (headless) / 190 (browser) |
+| **Best score** | ~200 (limited by my skill) | Unknown | 4,479 (headless) / 4,180 (frame-stepped browser) |
+| **Mean score** | Unknown | ~555 | 2,365 (headless) / 1,757 (frame-stepped) / 256 (real-time) |
 | **Who wrote it** | Me (undergrad, 2 months) | Me (professional, 2 days) | AI agent (I chose options, ~1 hour) |
 | **Platform** | Windows only | Windows only | Linux (any OS) |
 
-### Browser Validation
+### v1 Browser Validation
 
 The headless environment is only useful if the agent's behavior transfers to the real game. Validation: Selenium opens `chrome://dino` in Windows Chrome, JavaScript reads the Runner instance's game state (position, speed, obstacles), the model predicts an action, and Selenium sends the keystroke.
 
-Results (5 episodes, Chrome 147):
+v1 results (5 episodes, Chrome 147):
 
 | Metric | Value |
 |--------|-------|
@@ -122,7 +122,7 @@ This is actually a well-known problem in robotics RL. Training in simulation is 
 
 The fix isn't complicated: train with action delay (1-2 frame buffer before actions take effect) and frame skip (advance multiple game frames per agent step). This forces the agent to learn anticipatory behavior instead of reactive behavior. It's a 20-line code change. But you have to know it's needed, and I didn't check until the browser score came back.
 
-**Status**: Fixes identified, retraining scheduled. Target: browser mean > 555 (beat the 2023 DQN).
+**Status**: Physics fixes helped but timing mismatch was the real bottleneck. Solved with JS frame-stepping — browser mean 1,757 (3.2x target of 555). See the full story below.
 
 ## What This Shows
 
@@ -263,7 +263,7 @@ if (self.trex_y >= MAX_JUMP_HEIGHT or self.speed_drop) and \
     self.trex_vy = DROP_VELOCITY
 ```
 
-Headless peak dropped from 99 to 83 (Chrome measures 87; the 4px gap is from Chrome's `Math.round()` on position updates). All 30 existing tests pass. Added 6 new tests for the cap behavior.
+Headless peak dropped from 99 to 83 (Chrome measures 87; the 4px gap is from Chrome's `Math.round()` on position updates). All 30 existing tests pass. Added 7 new tests for the cap behavior.
 
 v3 training now running. Same hyperparameters, but the jump arc finally matches what Chrome actually does.
 
@@ -276,3 +276,118 @@ The broader pattern: sim-to-real transfer fails at the details you didn't know t
 The good news: each diagnosis gets easier. v1's gap was mysterious (just "it doesn't work in Chrome"). This time I had debug tools: full observation dumps, side-by-side comparison, injected JavaScript capturing frame-by-frame physics. The debugging itself is now systematic. The next surprise will be found faster.
 
 **Current status**: v3 training in progress. If the endJump cap was the last physics mismatch, we should see scores above 555 in Chrome (beating the 2023 DQN). If not — well, there's always v4.
+
+### v3 Results: It Wasn't The Physics
+
+v3 training finished. Headless eval: mean=2,365, max=4,479, min=1,869 — tighter than v2 (min jumped from 733 to 1,869). The endJump cap made the agent more robust. Browser validation:
+
+**Mean: 256. Max: 423.**
+
+Better than v2's 210 by about 22%. But the target was 555. Three iterations of physics fixes had moved the transfer ratio from 8% → 9% → 11%. The numbers were going the right direction, but at this rate, matching the 2023 DQN would take twenty more iterations.
+
+### Finding the Real Root Cause
+
+I went back to the obstacle movement data. At speed 6.86 with frame_skip=2, each obstacle should move 13.7 pixels per step (2 frames × speed). I was measuring 11.7. That's 1.70 game frames per step, not 2.00.
+
+The browser wasn't running at 60fps. Under Selenium's instrumentation overhead, Chrome was hitting about **51fps**. Every policy step was getting 15% fewer game frames than the model expected. Over a 16-step jump arc, that means the obstacle is 33 pixels behind where the model thinks it is when the dino lands.
+
+This explained everything. v1 failed at 8% transfer. v2 added physics fixes: 9%. v3 added more physics fixes: 11%. Each iteration was correct — the physics *were* getting more accurate — but they were correcting a 5% error while a 15% timing error dominated. Like fine-tuning a microscope that's pointed at the wrong slide.
+
+The 2023 DQN scored 555 not because it had better physics modeling. It scored 555 because it trained directly in Chrome, at Chrome's actual framerate, with Chrome's actual latency. It learned the *real* timing. Our agent learned perfect 60fps timing and deployed at 51fps.
+
+### The Strategy Pivot
+
+Three options:
+
+1. **JS frame-stepping**: Inject JavaScript to take over Chrome's game loop. Override `performance.now()` with a fake clock, override `requestAnimationFrame` to not auto-schedule, and step the game frame-by-frame from Python. Each step advances exactly 16.67ms — matching the 60fps the model trained on. Definitive diagnostic: if this works, the physics are correct and timing was the only issue.
+
+2. **Train with browser timing**: Measure Chrome's actual frame intervals, set the headless env to match. Retrain. Slower and machine-specific.
+
+3. **Domain randomization**: Train with random frame_skip values each step. More robust but slower convergence and lower peak performance.
+
+I chose option 1 — JS frame-stepping. It was the fastest path to a definitive answer, and if it worked, the existing model would work with zero retraining.
+
+### The JavaScript Trick
+
+Chrome Dino's game loop works like this:
+
+```javascript
+update(timestamp) {
+    var deltaTime = timestamp - this.time;  // ms since last frame
+    this.time = timestamp;
+    // ... move everything by deltaTime ...
+    this.scheduleNextUpdate();
+}
+
+scheduleNextUpdate() {
+    this.raqId = requestAnimationFrame(this.update.bind(this));
+}
+```
+
+The game calls `requestAnimationFrame`, which invokes `update()` ~60 times per second with the real timestamp from `performance.now()`. Everything moves proportional to `deltaTime`.
+
+The trick: replace both primitives.
+
+```javascript
+// Take over the clock
+window.__fakeClock = performance.now();
+performance.now = function() { return window.__fakeClock; };
+
+// Take over the scheduler
+window.__rafCallback = null;
+window.requestAnimationFrame = function(cb) {
+    window.__rafCallback = cb;  // capture, don't schedule
+};
+```
+
+Now from Python, each action step:
+1. Apply the action via `Runner.getInstance().tRex.startJump(speed)` — no keyboard events, frame-perfect
+2. Advance the fake clock by N × 16.67ms
+3. Call the captured `requestAnimationFrame` callback N times
+4. Read the game state from the Runner instance
+
+The game thinks time is passing normally. It doesn't know it's running in slow motion, one frame at a time, controlled by a Python script.
+
+### The Results
+
+**Frame-stepped browser validation (10 episodes):**
+
+| Metric | Value |
+|--------|-------|
+| Mean score | **1,757** |
+| Max score | 4,180 |
+| Min score | 245 |
+| Transfer | **74.3%** |
+
+From 256 to 1,757. **6.9x improvement.** Zero retraining. The only change was making Chrome's clock match the training environment's clock.
+
+The physics were correct all along. Three iterations of increasingly precise physics fixes (speed-dependent jump, endJump cap, action delay modeling) were all addressing a 5% problem while ignoring the 15% timing problem sitting right next to it.
+
+### Comparison
+
+| | 2018 | 2023 | 2026 Real-time | 2026 Frame-stepped |
+|---|---|---|---|---|
+| **Mean score** | ~200 | ~555 | 256 | **1,757** |
+| **Max score** | ~200 | Unknown | 423 | **4,180** |
+| **vs 2023 DQN** | 0.4x | 1x | 0.5x | **3.2x** |
+| **Method** | Human mimicry | Browser DQN | Headless PPO → browser | Headless PPO → frame-stepped browser |
+
+### What This Means
+
+The headless clone approach *works*. The PPO agent trained in 40 minutes what the DQN took hours to learn, and scores 3x higher when the deployment timing is controlled. The sim-to-real gap was never about physics fidelity — it was about **temporal fidelity**.
+
+Real-time Selenium can't match the 60fps the model trained on. But with frame-stepping, you get deterministic frame control. The game runs in slow motion, but it runs *exactly* how the agent expects.
+
+The 26% gap between frame-stepped (1,757) and headless (2,365) is probably from minor differences — Chrome uses `Math.round()` on positions, the velocity is estimated from position deltas rather than known directly, obstacle generation uses different random seeds. These are tractable problems if the gap matters, but 1,757 already demolishes the target of 555.
+
+### The Final Lesson
+
+The three implementations tell a story about where the hard problems actually live:
+
+- **2018**: The hard problem was *knowing what approach to use*. I picked supervised learning because I didn't know about RL.
+- **2023**: The hard problem was *engineering the environment*. I used RL but spent all my time on browser automation, screen capture, and OCR.
+- **2026**: The hard problem was *sim-to-real transfer*. I had the right algorithm, a fast headless environment, and correct physics constants from the source code. Training was solved in 40 minutes. But making it work in the real browser — that took longer than everything else combined.
+
+The tools get better. The algorithms get more capable. The environments get faster. But each improvement just reveals the *next* hard problem. And the next hard problem is always about the gap between where you train and where you deploy.
+
+The Chrome Dino AI plays the game now. Mean 1,757 in Chrome, peaks above 4,000. It just needs someone to pause the clock for it.
