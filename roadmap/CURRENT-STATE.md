@@ -1,6 +1,6 @@
 # chrome-dino — Current State
 
-**Phase Status**: In Progress — Browser competence achieved (frame-stepped), narrative completion remaining
+**Phase Status**: Blocked: Vision Expansion — awaiting human approval
 
 ## What Exists
 
@@ -147,13 +147,57 @@ Chose Option 1 (JS frame-stepping) from the three proposed options. See ADR-002 
 
 ## Remaining Work
 
-- Complete project-history.md with full iteration story (incl. frame-stepping breakthrough)
+- ~~Complete project-history.md with full iteration story~~ Done
 - Consider domain randomization (OQ-003) if real-time play becomes a goal
 - The 26% transfer gap (1757 vs 2365) may be reducible via Math.round matching or velocity estimation improvements
 
 ## Blocked / Unresolved
 
 - OQ-003: Domain randomization — deferred, not needed for current success criteria
+
+## Vision Expansion Proposal
+
+All 5 goals in the Vision Lock v1.3 "Where We're Going" are complete. The project has achieved its primary objective: a PPO agent trained in a headless clone that demonstrably transfers to Chrome (mean=1757 frame-stepped, 3.2x the 2023 DQN baseline).
+
+### What Was Accomplished
+
+1. **Headless environment**: Physics clone of Chrome Dino from Chromium source, with action delay, frame skip, speed-dependent jump, and endJump velocity cap
+2. **PPO training**: mean=2365 headless (v3), 37 tests, reproducible
+3. **Sim-to-real debugging**: Three iterations of physics fixes (v1→v2→v3) revealed timing, not physics, as the root cause
+4. **Frame-stepping validation**: JS injection gives deterministic browser control; mean=1757 (74% transfer)
+5. **Narrative**: Complete project-history.md covering all three implementations (2018→2023→2026) and the debugging arc
+
+### What Was Learned
+
+- **Sim-to-real gaps are dominated by the mismatch you don't model.** Three physics iterations fixed 5% of the gap while a 15% timing error went unaddressed.
+- **Frame-stepping is a powerful diagnostic tool.** It definitively separates "physics wrong" from "timing wrong" — zero retraining needed.
+- **The headless approach is validated.** 40 minutes of training produces a policy 3x better than a DQN trained for hours in the actual browser.
+
+### Proposed Next Directions
+
+**Option A: Real-time transfer via domain randomization**
+Train with randomized frame_skip (1-3) and action_delay (0-2) to produce a policy robust to timing variance. Goal: mean>555 in real-time Chrome (no frame-stepping). This would make the project narrative stronger — "it actually plays the game in real time."
+
+**Option B: Higher-fidelity environment**  
+Close the remaining 26% frame-stepped gap. Add Math.round() to position updates, improve velocity estimation, match Chrome's obstacle generation RNG more closely. Goal: frame-stepped transfer >90%.
+
+**Option C: Blog publication readiness**
+Polish project-history.md into a publishable article. Add diagrams, clean up technical jargon, add background explanations for non-RL readers. Create a GIF/video of the agent playing. This is purely a communication deliverable — no code changes.
+
+**Option D: Night mode / speed >= 13 challenges**
+Chrome Dino introduces night mode and speed caps at very high scores. The current agent hasn't been evaluated at extreme speeds. Extend the env and training to handle these edge cases.
+
+**Option E: Declare done**
+The project has achieved all stated goals. Archive the vision, write a summary, and close out. No further engineering needed.
+
+### Recommendation
+
+Options are not mutually exclusive. My recommendation in order of value:
+1. **Option C** first — the narrative is the primary deliverable per the vision statement. Polish it while everything is fresh.
+2. **Option A** if real-time play matters for the narrative
+3. **Option E** if the narrative is sufficient without real-time play
+
+**Awaiting human decision on which direction(s) to pursue.**
 
 ## Files Modified This Session
 
@@ -166,6 +210,7 @@ Chose Option 1 (JS frame-stepping) from the three proposed options. See ADR-002 
 - `docs/architecture/overview.md` — v3 endJump cap note, frame-stepped script entry
 - `docs/reference/glossary.md` — endJump cap, frame-stepping definitions
 - `docs/reference/open-questions.md` — OQ-002 resolved
-- `docs/vision/VISION-LOCK.md` — v1.3: success criteria met, goals updated, risks resolved
-- `roadmap/CURRENT-STATE.md` — updated with frame-stepping results
+- `docs/vision/VISION-LOCK.md` — v1.3: all success criteria met, all goals done
+- `roadmap/CURRENT-STATE.md` — updated with frame-stepping results, vision expansion proposal
+- `project-history.md` — Complete narrative through frame-stepping breakthrough
 - `project-history.md` — Journal narrative of debugging session

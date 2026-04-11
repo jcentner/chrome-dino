@@ -25,7 +25,7 @@ A headless Python recreation of Chrome Dino's physics (sourced from Chromium Typ
 | Browser stretch | Mean browser score > 1000 | **MET**: frame-stepped mean=1757 |
 | Training efficiency | Converges within 4M timesteps on RTX 3070 Ti | Met (best model at ~875K of 2M steps) |
 | Environment fidelity | Headless score predicts browser score within 2x | **MET**: 2365 headless vs 1757 frame-stepped (1.3x) |
-| Narrative completeness | project-history.md ready for blog adaptation | In progress |
+| Narrative completeness | project-history.md ready for blog adaptation | **MET**: Full arc through frame-stepping breakthrough |
 
 ## Where We're Going
 
@@ -33,7 +33,7 @@ A headless Python recreation of Chrome Dino's physics (sourced from Chromium Typ
 2. ~~Fix sim-to-real gap: action delay, speed-dependent jump, observation mapping~~ **Done (v2/v3)**
 3. ~~Retrain with corrected environment (v2)~~ **Done (v3 with endJump cap)**
 4. ~~Achieve browser mean score > 555 (beat 2023 DQN)~~ **Done: frame-stepped mean=1757**
-5. Complete project-history.md with the full iteration story
+5. ~~Complete project-history.md with the full iteration story~~ **Done: full arc through frame-stepping**
 
 ## Explicit Non-Goals
 
