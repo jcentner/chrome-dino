@@ -44,6 +44,15 @@ GRAVITY = 0.6                   # per frame
 SPEED_DROP_COEFFICIENT = 3.0
 DROP_VELOCITY = 5.0
 
+# Jump height thresholds (trex.ts: normalJumpConfig)
+# Chrome canvas: groundYPos=93, maxJumpHeight=30, minJumpHeight=30
+# Converted to bottom-up coords (y=0 is ground, positive=up):
+MIN_JUMP_HEIGHT = 30   # trex_y above which reachedMinHeight = True
+MAX_JUMP_HEIGHT = 63   # trex_y above which endJump caps velocity
+# endJump cap: limits upward velocity to DROP_VELOCITY (5.0) once
+# past MAX_JUMP_HEIGHT, preventing the dino from going as high
+# as raw ballistic trajectory would allow.
+
 # Obstacle types (offline_sprite_definitions.ts)
 # yPos in Chromium is from canvas top; we convert to bottom-up
 OBSTACLE_TYPES = [
@@ -157,6 +166,7 @@ class DinoEnv(gym.Env):
         self.jumping = False
         self.ducking = False
         self.speed_drop = False
+        self.reached_min_height = False
 
         # Obstacles: list of dicts
         self.obstacles: list[dict] = []
@@ -214,6 +224,7 @@ class DinoEnv(gym.Env):
             self.ducking = False
             self.trex_vy = INITIAL_JUMP_VELOCITY + self.speed / 10.0
             self.speed_drop = False
+            self.reached_min_height = False
         elif action == 2:
             # Duck
             if self.jumping:
@@ -237,11 +248,22 @@ class DinoEnv(gym.Env):
 
             self.trex_y += self.trex_vy
 
+            # minJumpHeight check (Chromium trex.ts:508-513)
+            if self.trex_y >= MIN_JUMP_HEIGHT or self.speed_drop:
+                self.reached_min_height = True
+
+            # maxJumpHeight / endJump cap (Chromium trex.ts:516-520, 483-486)
+            # When above MAX_JUMP_HEIGHT, cap upward velocity to DROP_VELOCITY
+            if (self.trex_y >= MAX_JUMP_HEIGHT or self.speed_drop) and \
+               self.reached_min_height and self.trex_vy > DROP_VELOCITY:
+                self.trex_vy = DROP_VELOCITY
+
             if self.trex_y <= 0:
                 self.trex_y = 0.0
                 self.trex_vy = 0.0
                 self.jumping = False
                 self.speed_drop = False
+                self.reached_min_height = False
 
         # --- Update speed ---
         if self.speed < MAX_SPEED:

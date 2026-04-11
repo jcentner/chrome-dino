@@ -6,11 +6,14 @@ from gymnasium import spaces
 
 from src.env import (
     CANVAS_WIDTH,
+    DROP_VELOCITY,
     FPS,
     GRAVITY,
     INITIAL_JUMP_VELOCITY,
     INITIAL_SPEED,
+    MAX_JUMP_HEIGHT,
     MAX_SPEED,
+    MIN_JUMP_HEIGHT,
     DinoEnv,
 )
 
@@ -484,4 +487,114 @@ class TestCombinedFeatures:
         env = DinoEnv(action_delay=3, frame_skip=4, clear_time_ms=2000)
         assert env.observation_space.shape == (20,)
         assert env.action_space.n == 3
+        env.close()
+
+
+# ===================================================================
+# 7. endJump Velocity Cap Tests (Chromium trex.ts:483-520)
+# ===================================================================
+
+class TestEndJumpCap:
+    """Spec §7 — maxJumpHeight / endJump velocity cap from Chromium."""
+
+    def test_velocity_capped_above_max_jump_height(self):
+        """Once trex_y exceeds MAX_JUMP_HEIGHT, upward vy is capped to DROP_VELOCITY."""
+        env = DinoEnv()
+        env.reset()
+        env.speed = 7.0
+        # Trigger jump
+        env._step_internal(1)
+        # Step until above MAX_JUMP_HEIGHT
+        while env.trex_y < MAX_JUMP_HEIGHT:
+            env._step_internal(0)
+        # At this point, vy should be capped
+        assert env.trex_vy <= DROP_VELOCITY + 0.01, \
+            f"vy should be <= {DROP_VELOCITY} above MAX_JUMP_HEIGHT, got {env.trex_vy}"
+        env.close()
+
+    def test_reached_min_height_set(self):
+        """reached_min_height becomes True once trex_y >= MIN_JUMP_HEIGHT."""
+        env = DinoEnv()
+        env.reset()
+        env.speed = 7.0
+        env._step_internal(1)
+        assert not env.reached_min_height
+        while env.trex_y < MIN_JUMP_HEIGHT:
+            env._step_internal(0)
+            if env.trex_y < MIN_JUMP_HEIGHT:
+                assert not env.reached_min_height
+        assert env.reached_min_height
+        env.close()
+
+    def test_peak_lower_than_uncapped(self):
+        """The endJump cap must reduce peak height vs uncapped ballistic trajectory."""
+        env = DinoEnv()
+        env.reset()
+        env.speed = 8.0
+        # Compute uncapped peak
+        vy = INITIAL_JUMP_VELOCITY + 8.0 / 10.0
+        y = 0.0
+        uncapped_peak = 0.0
+        while True:
+            y += vy
+            vy -= GRAVITY
+            uncapped_peak = max(uncapped_peak, y)
+            if y <= 0:
+                break
+        # Run env jump
+        env._step_internal(1)
+        capped_peak = 0.0
+        for _ in range(50):
+            env._step_internal(0)
+            capped_peak = max(capped_peak, env.trex_y)
+            if not env.jumping:
+                break
+        assert capped_peak < uncapped_peak, \
+            f"Capped peak {capped_peak:.1f} should be < uncapped {uncapped_peak:.1f}"
+        env.close()
+
+    def test_peak_approximately_matches_chrome(self):
+        """At speed 7.6, peak should be ~83 (Chrome measured ~87 with rounding)."""
+        env = DinoEnv()
+        env.reset()
+        env.speed = 7.6
+        env._step_internal(1)
+        peak = 0.0
+        for _ in range(50):
+            env._step_internal(0)
+            peak = max(peak, env.trex_y)
+            if not env.jumping:
+                break
+        # Chrome peaks at ~87 (with Math.round), our float arithmetic gives ~83
+        assert 78 < peak < 90, f"Peak {peak:.1f} should be ~83 (Chrome ~87)"
+        env.close()
+
+    def test_reached_min_height_resets_on_landing(self):
+        """reached_min_height resets when the dino lands."""
+        env = DinoEnv()
+        env.reset()
+        env.speed = 7.0
+        env._step_internal(1)
+        # Jump until landing
+        for _ in range(50):
+            env._step_internal(0)
+            if not env.jumping:
+                break
+        assert not env.reached_min_height
+        env.close()
+
+    def test_reached_min_height_resets_on_new_jump(self):
+        """reached_min_height resets at the start of a new jump."""
+        env = DinoEnv()
+        env.reset()
+        env.speed = 7.0
+        # First jump
+        env._step_internal(1)
+        for _ in range(50):
+            env._step_internal(0)
+            if not env.jumping:
+                break
+        # Second jump
+        env._step_internal(1)
+        assert not env.reached_min_height
         env.close()

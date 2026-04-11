@@ -16,6 +16,7 @@ import json
 import shutil
 import sys
 import time
+from collections import deque
 from pathlib import Path
 
 import numpy as np
@@ -36,6 +37,9 @@ from src.env import (
     TREX_HEIGHT,
     TREX_START_X,
 )
+
+# Velocity normalization denominator — must match env._get_obs()
+VEL_NORM = INITIAL_JUMP_VELOCITY + MAX_SPEED / 10.0
 
 # JavaScript to extract game state from the Runner singleton.
 # The Chromium dino game (2024+ refactor) uses a module-scoped Runner class.
@@ -140,6 +144,13 @@ def main():
     parser.add_argument("--model", type=str, required=True, help="Path to model zip")
     parser.add_argument("--episodes", type=int, default=5, help="Number of games to play")
     parser.add_argument("--slow", action="store_true", help="Add delay between actions for visibility")
+    parser.add_argument("--debug", action="store_true", help="Print diagnostic observation data")
+    parser.add_argument("--action-delay", type=int, default=1,
+                        help="Action delay buffer size (must match training, default: 1)")
+    parser.add_argument("--frame-skip", type=int, default=2,
+                        help="Frames between policy steps (must match training, default: 2)")
+    parser.add_argument("--step-pad-ms", type=float, default=4.0,
+                        help="Extra ms per step to compensate for Selenium/Chrome overhead (default: 4)")
     args = parser.parse_args()
 
     model = PPO.load(args.model, device="cpu")
@@ -216,6 +227,16 @@ def main():
                 ducking = False
                 actions = ActionChains(driver)
 
+                # Action delay buffer — replicates the FIFO in DinoEnv
+                action_buffer = deque([0] * args.action_delay)
+                frame_skip = args.frame_skip
+                # Target time per step = frame_skip game frames at 60fps
+                # Add padding because Chrome may not run at exactly 60fps
+                # and sleep() has ~1ms OS granularity on Linux/WSL
+                target_step_time = frame_skip / 60.0 + args.step_pad_ms / 1000.0
+
+                step_start = time.perf_counter()
+
                 while steps < max_steps:
                     try:
                         # Read game state
@@ -224,11 +245,13 @@ def main():
                             print(f"  [warn] null result at step {steps}", flush=True)
                             time.sleep(0.1)
                             steps += 1
+                            step_start = time.perf_counter()
                             continue
                         state = json.loads(result)
                     except Exception as e:
                         print(f"  [warn] state read error: {e}", flush=True)
                         time.sleep(0.1)
+                        step_start = time.perf_counter()
                         continue
 
                     if state["crashed"]:
@@ -240,38 +263,81 @@ def main():
 
                     if not state["playing"]:
                         time.sleep(0.1)
+                        step_start = time.perf_counter()
                         continue
 
                     # Convert to observation
                     obs = game_state_to_obs(state, state["groundY"])
 
                     # Estimate velocity from position change
+                    # Divide by frame_skip since we poll every frame_skip frames
                     trex = state["tRex"]
                     trex_y_bottomup = max(0, state["groundY"] - trex["y"])
-                    obs[2] = (trex_y_bottomup - prev_trex_y) / INITIAL_JUMP_VELOCITY
+                    obs[2] = np.clip(
+                        (trex_y_bottomup - prev_trex_y) / (VEL_NORM * frame_skip),
+                        -1.0, 1.0,
+                    )
                     prev_trex_y = trex_y_bottomup
 
                     # Get action from model
                     action, _ = model.predict(obs, deterministic=True)
                     action = int(action)
 
-                    # Execute action — duck requires holding the key
-                    if action == 2 and not ducking:
+                    # Action delay buffer — push new action, pop delayed one
+                    if args.action_delay > 0:
+                        action_buffer.append(action)
+                        effective_action = action_buffer.popleft()
+                    else:
+                        effective_action = action
+
+                    # Debug output
+                    if args.debug and state["obstacles"] and steps < 300:
+                        o = state["obstacles"][0]
+                        elapsed_ms = (time.perf_counter() - step_start) * 1000
+                        # Print full obs vector at key dx_norm values
+                        if abs(obs[5] - 0.50) < 0.015 or abs(obs[5] - 0.20) < 0.015:
+                            print(f"  [OBS] step={steps} action={action} eff={effective_action} dt={elapsed_ms:.0f}ms")
+                            labels = ['speed', 'trex_y', 'trex_vy', 'jumping', 'ducking',
+                                      'obs0_dx', 'obs0_y', 'obs0_w', 'obs0_h', 'obs0_type',
+                                      'obs1_dx', 'obs1_y', 'obs1_w', 'obs1_h', 'obs1_type',
+                                      'obs2_dx', 'obs2_y', 'obs2_w', 'obs2_h', 'obs2_type']
+                            for idx, (lbl, val) in enumerate(zip(labels, obs)):
+                                print(f"    obs[{idx:2d}] {lbl:>10s} = {val:+.4f}", flush=True)
+                        else:
+                            print(
+                                f"  [dbg] step={steps} action={action} "
+                                f"eff={effective_action} "
+                                f"speed={state['speed']:.2f} "
+                                f"trex_y={trex_y_bottomup:.1f} "
+                                f"obs_x={o['x']:.0f} obs_y={o['y']:.0f} "
+                                f"obs_w={o['w']:.0f} obs_h={o['h']:.0f} "
+                                f"obs_type={o['type']} "
+                                f"dx_norm={obs[5]:.3f} y_norm={obs[6]:.3f} "
+                                f"dt={elapsed_ms:.0f}ms "
+                                f"groundY={state['groundY']}",
+                                flush=True,
+                            )
+
+                    # Execute effective (delayed) action
+                    if effective_action == 2 and not ducking:
                         ActionChains(driver).key_down(Keys.ARROW_DOWN).perform()
                         ducking = True
-                    elif action != 2 and ducking:
+                    elif effective_action != 2 and ducking:
                         ActionChains(driver).key_up(Keys.ARROW_DOWN).perform()
                         ducking = False
-                    if action == 1:  # Jump
+                    if effective_action == 1:  # Jump
                         body.send_keys(Keys.ARROW_UP)
 
                     steps += 1
                     if steps % 100 == 0:
                         print(f"  step {steps}, speed={state['speed']:.1f}, obs={len(state['obstacles'])}", flush=True)
-                    if args.slow:
-                        time.sleep(0.05)
-                    else:
-                        time.sleep(1 / 60)  # ~60fps polling
+
+                    # Adaptive sleep: subtract elapsed I/O time from target
+                    elapsed = time.perf_counter() - step_start
+                    remaining = target_step_time - elapsed
+                    if remaining > 0.001:
+                        time.sleep(remaining)
+                    step_start = time.perf_counter()
                 else:
                     print(f"  Episode hit max steps ({max_steps})", flush=True)
                     scores.append(state.get("distance", 0) / 10.0)
