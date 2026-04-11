@@ -81,7 +81,7 @@ TREX_COLLISION_RUNNING = {"x": 1, "y": 0, "w": 40, "h": 42}
 TREX_COLLISION_DUCKING = {"x": 1, "y": 0, "w": 55, "h": 22}
 
 MAX_OBSTACLES = 3
-CLEAR_TIME_MS = 3000  # ms before obstacles start spawning
+CLEAR_TIME_MS = 500  # ms before obstacles start spawning (reduced for training density)
 
 
 class DinoEnv(gym.Env):
@@ -303,15 +303,24 @@ class DinoEnv(gym.Env):
             key=lambda o: o["x"]
         )
 
-        for i, o in enumerate(sorted_obs[:3]):
+        for i in range(3):
             base = 5 + i * 5
-            obs[base + 0] = (o["x"] - TREX_START_X) / CANVAS_WIDTH  # dx
-            obs[base + 1] = o["y"] / 100.0  # y position
-            obs[base + 2] = o["w"] / 100.0  # width
-            obs[base + 3] = o["h"] / 100.0  # height
-            # Type encoding: cactus_small=0.33, cactus_large=0.66, pterodactyl=1.0
-            type_map = {"cactus_small": 0.33, "cactus_large": 0.66, "pterodactyl": 1.0}
-            obs[base + 4] = type_map.get(o["type"], 0.0)
+            if i < len(sorted_obs):
+                o = sorted_obs[i]
+                obs[base + 0] = (o["x"] - TREX_START_X) / CANVAS_WIDTH  # dx
+                obs[base + 1] = o["y"] / 100.0  # y position
+                obs[base + 2] = o["w"] / 100.0  # width
+                obs[base + 3] = o["h"] / 100.0  # height
+                # Type encoding: cactus_small=0.33, cactus_large=0.66, pterodactyl=1.0
+                type_map = {"cactus_small": 0.33, "cactus_large": 0.66, "pterodactyl": 1.0}
+                obs[base + 4] = type_map.get(o["type"], 0.0)
+            else:
+                # Sentinel: no obstacle — far away
+                obs[base + 0] = 1.0  # max distance
+                obs[base + 1] = 0.0
+                obs[base + 2] = 0.0
+                obs[base + 3] = 0.0
+                obs[base + 4] = 0.0
 
         return obs
 
