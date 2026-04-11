@@ -29,6 +29,7 @@ INITIAL_SPEED = 6.0        # pixels per frame at 60fps
 ACCELERATION = 0.001       # per frame
 MAX_SPEED = 13.0
 GAP_COEFFICIENT = 0.6
+MAX_GAP_COEFFICIENT = 1.5
 
 # T-Rex config (trex.ts — normalJumpConfig + defaultTrexConfig)
 TREX_WIDTH = 44
@@ -199,7 +200,7 @@ class DinoEnv(gym.Env):
         # --- Collision detection ---
         if self._check_collision():
             self.game_over = True
-            reward = -1.0
+            reward = -10.0
             return self._get_obs(), reward, True, False, self._get_info()
 
         # --- Update counters ---
@@ -207,8 +208,8 @@ class DinoEnv(gym.Env):
         self.distance += self.speed
         self.score = self.distance / 10.0  # Roughly matches Chrome's scoring
 
-        # Reward: +0.01 per frame alive (encourages survival)
-        reward = 0.01
+        # Reward: proportional to speed (surviving at higher speed = more reward)
+        reward = self.speed / MAX_SPEED
 
         return self._get_obs(), reward, False, False, self._get_info()
 
@@ -221,9 +222,11 @@ class DinoEnv(gym.Env):
         # Check if we need a new obstacle
         if len(self.obstacles) > 0:
             last_obs = max(self.obstacles, key=lambda o: o["x"])
-            # Compute minimum gap (from Chromium: minGap * gapCoefficient * speed)
-            min_gap = last_obs["min_gap"] * GAP_COEFFICIENT
-            gap = min_gap + self._rng.random() * min_gap * 1.5
+            # Chromium formula: gap = width * speed + minGap * gapCoefficient
+            min_gap = round(last_obs["w"] * self.speed +
+                            last_obs["min_gap"] * GAP_COEFFICIENT)
+            max_gap = round(min_gap * MAX_GAP_COEFFICIENT)
+            gap = min_gap + self._rng.random() * (max_gap - min_gap)
             if last_obs["x"] + last_obs["w"] + gap > CANVAS_WIDTH:
                 return
         elif self.frame_count % 30 != 0:
