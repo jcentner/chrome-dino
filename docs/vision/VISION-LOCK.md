@@ -1,6 +1,6 @@
 # chrome-dino — Vision Lock
 
-> **Version**: 1.0
+> **Version**: 1.1
 > **Updated**: 2026-04-10
 > **Status**: Active
 > **Rules**: Single versioned document, updated in place. Minor versions (1.1) for within-scope updates; major versions (2.0) for scope changes requiring human approval. Completed visions are archived to `docs/vision/archive/` before replacement.
@@ -19,18 +19,18 @@ A headless Python recreation of Chrome Dino's physics (sourced from Chromium Typ
 
 ## Success Criteria
 
-| Criterion | Measure |
-|-----------|---------|
-| Agent competence | Mean score >1000 over 100 eval episodes |
-| Training efficiency | Converges within 2M timesteps on RTX 3070 Ti |
-| Environment fidelity | Agent behavior transfers plausibly to real Chrome Dino |
-| Narrative completeness | project-history.md ready for blog adaptation |
+| Criterion | Measure | Status |
+|-----------|---------|--------|
+| Agent competence | Mean score >1000 over 100 eval episodes | **Met**: mean=2,247 |
+| Training efficiency | Converges within 2M timesteps on RTX 3070 Ti | **Met**: converged at ~1.5M steps |
+| Environment fidelity | Agent behavior transfers plausibly to real Chrome Dino | **Met**: mean=190 in browser (3x random) |
+| Narrative completeness | project-history.md ready for blog adaptation | **Met**: all three iterations with results |
 
 ## Where We're Going
 
-1. Train a PPO agent that consistently scores >1000 (human-competitive)
-2. Validate agent behavior against real Chrome Dino in browser
-3. Complete project-history.md with results and analysis
+1. ~~Train a PPO agent that consistently scores >1000 (human-competitive)~~ **Done**
+2. ~~Validate agent behavior against real Chrome Dino in browser~~ **Done**
+3. ~~Complete project-history.md with results and analysis~~ **Done**
 
 ## Explicit Non-Goals
 
@@ -77,3 +77,4 @@ A headless Python recreation of Chrome Dino's physics (sourced from Chromium Typ
 | Version | Date | Change |
 |---------|------|--------|
 | 1.0 | 2026-04-10 | Initial vision: PPO agent for Chrome Dino with headless environment |
+| 1.1 | 2026-04-10 | All goals met: agent trained (mean=2247), browser validated (mean=190), project-history.md complete |

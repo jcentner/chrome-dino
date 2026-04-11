@@ -24,6 +24,7 @@ PPO agent that plays Chrome Dino via a headless Python environment. Two componen
 | `DinoEnv` | `src/env.py` | Gymnasium environment: Chrome Dino physics, collision detection, obstacle spawning |
 | Training script | `scripts/train.py` | PPO setup, parallel envs (SubprocVecEnv), checkpointing, eval callbacks |
 | Evaluation script | `scripts/evaluate.py` | Load model, run episodes, report statistics |
+| Browser validation | `scripts/validate_browser.py` | Validate model against real Chrome Dino via Selenium + JS Runner API |
 
 ## Data Flow
 
