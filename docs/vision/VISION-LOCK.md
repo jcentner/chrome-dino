@@ -1,0 +1,70 @@
+# chrome-dino — Vision Lock
+
+> **Version**: 1.0
+> **Updated**: —
+> **Status**: Draft — to be synthesized from project evidence in Phase 0
+> **Rules**: Single versioned document, updated in place. Minor versions (1.1) for within-scope updates; major versions (2.0) for scope changes requiring human approval. Completed visions are archived to `docs/vision/archive/` before replacement.
+
+## Problem Statement
+
+<!-- What problem does this project solve? Who has this problem? Why does it matter? -->
+
+## Target User
+
+<!-- Who is the primary user? What is their context? -->
+
+## Core Concept
+
+<!-- What is the core idea in one paragraph? What makes this approach the right one? -->
+
+## Success Criteria
+
+<!-- Measurable outcomes that define "done" for this vision -->
+
+| Criterion | Measure |
+|-----------|---------|
+| TBD | TBD |
+
+## Where We're Going
+
+<!-- Priority-ordered goals. These drive all phases until this vision is complete. -->
+
+1. TBD
+
+## Explicit Non-Goals
+
+<!-- What does this project NOT do? Be specific. These prevent scope creep. -->
+
+## Out of Scope
+
+<!-- Explicitly excluded items — things adjacent to the goals that we will not pursue -->
+
+## Product Constraints
+
+<!-- Rules the product must follow (e.g., "requires human approval for X") -->
+
+## Technical Constraints
+
+<!-- Hardware, environment, dependency constraints -->
+
+- **Language**: Python
+
+## Architecture Invariants
+
+<!-- Design principles that must not be violated across any implementation phase -->
+
+## Risks
+
+<!-- Known risks to achieving this vision -->
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| TBD | — | — | — |
+
+## Changelog
+
+<!-- Append an entry for every substantive change. Format: version, date, summary. -->
+
+| Version | Date | Change |
+|---------|------|--------|
+| 1.0 | — | Initial vision synthesized from project evidence |

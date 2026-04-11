@@ -1,0 +1,39 @@
+# chrome-dino — Copilot Instructions
+
+You are working on **chrome-dino**, AI model that plays chrome://dino.
+
+## Project Context
+
+- **Implementation language**: Python
+- **Description**: AI model that plays chrome://dino
+
+<!-- TODO: Add project-specific context after generation -->
+<!-- Examples: target environment, key dependencies, primary LLM (if applicable) -->
+
+## Key Architecture Decisions
+
+Before making design choices, check existing [ADRs](docs/architecture/decisions/). Record new significant decisions as ADRs.
+
+## Documentation
+
+- Vision lock: [docs/vision/VISION-LOCK.md](docs/vision/VISION-LOCK.md) — versioned in place; scope changes require human approval
+- Architecture: [docs/architecture/overview.md](docs/architecture/overview.md)
+- Open questions: [docs/reference/open-questions.md](docs/reference/open-questions.md)
+- Tech debt: [docs/reference/tech-debt.md](docs/reference/tech-debt.md)
+- Glossary: [docs/reference/glossary.md](docs/reference/glossary.md)
+- Stack skills: [.github/skills/](.github/skills/) — technology-specific docs grounding
+
+## Coding Conventions
+
+- Check [open questions](docs/reference/open-questions.md) before making decisions that aren't covered by ADRs. If a question is relevant, resolve it and record the decision.
+- New significant design choices should be recorded as ADRs in `docs/architecture/decisions/`.
+- Use the [tech debt tracker](docs/reference/tech-debt.md) for known compromises.
+- When introducing new terms, add them to the [glossary](docs/reference/glossary.md).
+- Prefer simple, well-tested code over clever abstractions.
+- Every design choice should have a reason.
+
+## Quality Standards
+
+- Test coverage should include both happy paths and edge cases.
+- All external actions should require explicit human approval.
+<!-- TODO: Add project-specific quality standards -->

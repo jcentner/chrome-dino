@@ -1,0 +1,73 @@
+---
+description: "Review code against project conventions, quality standards, and architecture decisions."
+agent: agent
+---
+
+# Code Review
+
+You are reviewing code for chrome-dino. Read the project context:
+
+- [Project instructions](../../.github/copilot-instructions.md)
+- [Architecture overview](../../docs/architecture/overview.md)
+- [ADR index](../../docs/architecture/decisions/README.md)
+- [Open questions](../../docs/reference/open-questions.md)
+- [Glossary](../../docs/reference/glossary.md)
+
+## Task
+
+Review recent changes. If a specific scope is provided, focus there: **${input:reviewScope:recent changes}**
+
+## Review Dimensions
+
+### 1. Architecture Compliance
+- Do changes align with existing ADRs?
+- Are documented interfaces respected?
+- Do new patterns match established conventions?
+
+### 2. Code Quality
+- Is the code simple and readable?
+- Are there unnecessary abstractions or over-engineering?
+- Are error cases handled at system boundaries?
+- Is naming consistent with the glossary?
+
+### 3. Test Quality
+- Are there tests for new functionality?
+- Do tests cover both happy paths and edge cases?
+- Are tests meaningful (not just boilerplate)?
+
+### 4. Docs Consistency
+- If code changes affect documented behavior, are docs updated?
+- Do any changes introduce docs-drift?
+- Are new terms added to the glossary?
+
+### 5. Security
+- Input validation at all system boundaries?
+- No hardcoded secrets, tokens, or credentials?
+- No command injection in subprocess calls? Proper shell escaping?
+- No SQL injection? Parameterized queries?
+- No template injection or XSS? Proper output encoding?
+- No credential leakage in logs, error messages, or reports?
+- No SSRF vulnerabilities in external API calls?
+- Proper authentication and minimal token scoping?
+- File system access: path traversal, symlink handling, permissions?
+
+### 6. Dependency Security
+- Run `npm audit` / `pip-audit` / `cargo audit` or equivalent if dependencies changed
+- Known CVEs in new or updated dependencies?
+- Outdated dependencies with security implications?
+
+## Output Format
+
+Present findings as a table:
+
+| Severity | File | Finding | Recommendation |
+|----------|------|---------|----------------|
+| Critical / Major / Minor / Nit | path | description | fix |
+
+Then a summary: overall assessment, any blocking issues, and whether the changes are ready to merge.
+
+## Important
+
+- **Do not make changes** until the user approves.
+- Be specific — cite file paths and line numbers.
+- Distinguish between blocking issues and style preferences.

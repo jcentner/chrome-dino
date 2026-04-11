@@ -1,0 +1,35 @@
+# chrome-dino — Current State
+
+**Phase Status**: Not Started
+
+## What Exists
+
+- `.github/` — Copilot agents, prompts, hooks, and instructions for autonomous development
+- `docs/` — Documentation skeleton (vision, architecture, ADRs, reference docs)
+- `roadmap/` — Roadmap structure with checkpoint protocol
+- `AGENTS.md` — Cross-agent instructions (Copilot, Claude Code, etc.)
+
+## Current Phase
+
+Phase 0: Create the locked vision baseline and bootstrap stack skills.
+
+## Next Action
+
+The autonomous builder should:
+1. Read any existing project docs, notes, or code
+2. Synthesize a vision lock in `docs/vision/VISION-LOCK.md`
+3. Identify the technology stack and create initial skills in `.github/skills/`
+4. Create initial ADRs for key technical decisions
+5. Define Phase 1 in `roadmap/phases/`
+
+## Blocked / Unresolved
+
+Nothing yet.
+
+## Decisions Made
+
+- Autonomous development workflow adopted via copilot-autonomous-template
+
+## Files Modified This Session
+
+- All files generated from template

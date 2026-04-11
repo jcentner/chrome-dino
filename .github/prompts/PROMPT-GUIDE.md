@@ -1,0 +1,89 @@
+# chrome-dino — Prompt & Agent Guide
+
+## Primary Workflow: Autonomous Builder
+
+The **autonomous-builder** agent is the primary development workflow. Select it in the Chat agent picker or run it as a Copilot CLI session.
+
+```
+VS Code Chat → Agent picker → autonomous-builder → describe your goal
+```
+
+Or with Copilot CLI (background, worktree-isolated):
+
+```
+VS Code Chat → Session Target → Copilot CLI → select autonomous-builder agent → describe your goal
+```
+
+The builder reads `roadmap/CURRENT-STATE.md`, picks up where it left off, and runs a continuous loop: plan → implement → test → review → commit → checkpoint. It uses subagents for research (planner), testing (tester), and review (reviewer).
+
+### Autopilot settings
+
+For fully autonomous sessions, enable these VS Code settings:
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| `chat.autopilot.enabled` | `true` | Auto-approve + auto-respond |
+| `chat.agent.sandbox` | `true` | Restrict writes to workspace |
+| `chat.useCustomAgentHooks` | `true` | Enable Stop hook (prevents premature stopping) |
+
+## Manual Override Prompts
+
+These prompts are available for human-driven sessions when you want direct control over a specific step. Type `/` in Chat to invoke them.
+
+| Prompt | What It Does | When to Use |
+|--------|--------------|-------------|
+| `/phase-plan` | Create a phase planning doc with features, dependencies, acceptance criteria | Starting a new phase manually |
+| `/implementation-plan` | Create a file-by-file implementation checklist from a phase doc | Detailed planning before coding |
+| `/implement` | Execute an implementation plan step-by-step | Implementing from an approved plan |
+| `/code-review` | Review code for quality, architecture, and security | After changes, before merging |
+| `/phase-complete` | Update docs, record ADRs and lessons, mark phase done | Wrapping up a phase |
+
+## Custom Agents
+
+| Agent | Role | Tools | Used As |
+|-------|------|-------|---------|
+| `autonomous-builder` | Continuous build loop | All tools + Stop hook | Primary agent |
+| `planner` | Research and analysis | Read-only (search, web, codebase) | Subagent of builder |
+| `reviewer` | Code review + security | Read-only + terminal output | Subagent of builder |
+| `tester` | Write tests from specs | All tools (hidden from picker) | Subagent of builder |
+
+Agents support **handoffs** — the planner has a button to hand off to implementation, the reviewer has a button to hand off to fix issues.
+
+## How It All Fits Together
+
+```
+┌─────────────────────────────────────────────────┐
+│  autonomous-builder (Autopilot / Copilot CLI)   │
+│                                                 │
+│  ┌─────────┐  ┌──────────┐  ┌────────────────┐ │
+│  │ planner  │  │  tester  │  │    reviewer    │ │
+│  │ (research│  │ (tests   │  │ (code review + │ │
+│  │  only)   │  │  from    │  │  security)     │ │
+│  │          │  │  spec)   │  │                │ │
+│  └─────────┘  └──────────┘  └────────────────┘ │
+│                                                 │
+│  Stop hook: slice-gate.py                       │
+│  (enforces review + prevents premature stop)    │
+└─────────────────────────────────────────────────┘
+
+Manual overrides: /phase-plan  /implementation-plan  /implement  /code-review  /phase-complete
+```
+
+## How Prompts & Agents Work
+
+- **Prompt files** (`.prompt.md`) — invoked via `/` commands in Chat. Task-specific, human-triggered.
+- **Custom agents** (`.agent.md`) — persistent personas with tool restrictions and handoffs. Selected in the agent picker.
+- **Instruction files** (`.instructions.md`) — applied automatically when Copilot works on matching files.
+- **Hooks** (`.github/hooks/`) — deterministic shell commands at agent lifecycle points (e.g., Stop hook blocks premature stopping).
+- **Skills** (`.github/skills/`) — technology-specific knowledge that Copilot auto-loads when relevant. Created by the autonomous builder for each stack technology.
+- **AGENTS.md** — cross-agent instructions recognized by Copilot, Claude Code, and other AI agents.
+- Markdown links in prompt/agent bodies **auto-attach referenced files as context**.
+- Prompts link to `copilot-instructions.md` for shared project context.
+
+## Troubleshooting
+
+- **Prompt doesn't appear in `/` menu?** — Check file is in `.github/prompts/` with `.prompt.md` extension.
+- **Agent can't find files?** — Don't add a `tools` field unless restricting. Default agent has full access.
+- **Stop hook not firing?** — Enable `chat.useCustomAgentHooks: true` in VS Code settings.
+- **Agent stops prematurely?** — The Stop hook should block this. Check that `slice-gate.py` exists and is executable.
+- **Diagnostics** — Right-click in Chat view → Diagnostics to see all loaded prompts, agents, and errors.
