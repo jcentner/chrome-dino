@@ -1,70 +1,79 @@
 # chrome-dino — Vision Lock
 
 > **Version**: 1.0
-> **Updated**: —
-> **Status**: Draft — to be synthesized from project evidence in Phase 0
+> **Updated**: 2026-04-10
+> **Status**: Active
 > **Rules**: Single versioned document, updated in place. Minor versions (1.1) for within-scope updates; major versions (2.0) for scope changes requiring human approval. Completed visions are archived to `docs/vision/archive/` before replacement.
 
 ## Problem Statement
 
-<!-- What problem does this project solve? Who has this problem? Why does it matter? -->
+Chrome Dino is a well-understood game with simple mechanics but emergent complexity from speed scaling. Building an RL agent to play it well demonstrates core RL competence and provides a compelling narrative: the same problem solved three different ways over eight years (2018 supervised → 2023 DQN → 2026 PPO), each reflecting the state of AI tooling at the time.
 
 ## Target User
 
-<!-- Who is the primary user? What is their context? -->
+The author (Jacob Centner) — this is a personal project and blog post subject. Secondary audience: readers of the resulting blog post who want to understand RL concepts through a concrete, relatable example.
 
 ## Core Concept
 
-<!-- What is the core idea in one paragraph? What makes this approach the right one? -->
+A headless Python recreation of Chrome Dino's physics (sourced from Chromium TypeScript) paired with PPO training via Stable-Baselines3. No browser automation, no screen capture, no OCR — just pure game logic running at thousands of steps per second. The agent learns from a compact feature vector, not pixels.
 
 ## Success Criteria
 
-<!-- Measurable outcomes that define "done" for this vision -->
-
 | Criterion | Measure |
 |-----------|---------|
-| TBD | TBD |
+| Agent competence | Mean score >1000 over 100 eval episodes |
+| Training efficiency | Converges within 2M timesteps on RTX 3070 Ti |
+| Environment fidelity | Agent behavior transfers plausibly to real Chrome Dino |
+| Narrative completeness | project-history.md ready for blog adaptation |
 
 ## Where We're Going
 
-<!-- Priority-ordered goals. These drive all phases until this vision is complete. -->
-
-1. TBD
+1. Train a PPO agent that consistently scores >1000 (human-competitive)
+2. Validate agent behavior against real Chrome Dino in browser
+3. Complete project-history.md with results and analysis
 
 ## Explicit Non-Goals
 
-<!-- What does this project NOT do? Be specific. These prevent scope creep. -->
+- Pixel-perfect visual clone of Chrome Dino
+- Real-time browser automation for training
+- Beating world-record scores
+- Multi-agent or competitive play
 
 ## Out of Scope
 
-<!-- Explicitly excluded items — things adjacent to the goals that we will not pursue -->
+- Mobile/touch controls
+- Night mode / day-night cycle effects on gameplay
+- Sound effects
+- Score display / HUD rendering
 
 ## Product Constraints
 
-<!-- Rules the product must follow (e.g., "requires human approval for X") -->
+- Must run entirely on local hardware (no cloud training)
+- Must produce a narrative suitable for blog post adaptation
 
 ## Technical Constraints
 
-<!-- Hardware, environment, dependency constraints -->
-
-- **Language**: Python
+- **Language**: Python 3.12
+- **RL Framework**: Stable-Baselines3 + Gymnasium
+- **Hardware**: i7-12700K, 32GB RAM, RTX 3070 Ti (CUDA 13.0)
+- **Training**: Must converge in reasonable time (~30 min max)
 
 ## Architecture Invariants
 
-<!-- Design principles that must not be violated across any implementation phase -->
+- Environment physics constants must be traceable to Chromium source
+- Training and evaluation must be reproducible (seeded environments)
+- Archived implementations (2018, 2023) must not be modified
 
 ## Risks
 
-<!-- Known risks to achieving this vision -->
-
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| TBD | — | — | — |
+| Headless env diverges from real game | Medium | High | Validate on browser; constants from source |
+| PPO plateaus below target score | Low | Medium | Tune hyperparameters; try different reward shaping |
+| CUDA compatibility issues | Low | Low | MLP policy works on CPU too |
 
 ## Changelog
 
-<!-- Append an entry for every substantive change. Format: version, date, summary. -->
-
 | Version | Date | Change |
 |---------|------|--------|
-| 1.0 | — | Initial vision synthesized from project evidence |
+| 1.0 | 2026-04-10 | Initial vision: PPO agent for Chrome Dino with headless environment |

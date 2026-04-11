@@ -1,14 +1,21 @@
 # chrome-dino — Copilot Instructions
 
-You are working on **chrome-dino**, AI model that plays chrome://dino.
+You are working on **chrome-dino**, a PPO-based reinforcement learning agent that plays Chrome's offline dinosaur game.
 
 ## Project Context
 
-- **Implementation language**: Python
-- **Description**: AI model that plays chrome://dino
+- **Implementation language**: Python 3.12
+- **Key dependencies**: PyTorch, Stable-Baselines3, Gymnasium, NumPy
+- **Hardware target**: i7-12700K, 32GB RAM, RTX 3070 Ti (CUDA 13.0)
+- **Description**: Headless Dino game environment + PPO training pipeline. Third iteration of this project (2018 supervised, 2023 DQN+browser, 2026 PPO+headless).
 
-<!-- TODO: Add project-specific context after generation -->
-<!-- Examples: target environment, key dependencies, primary LLM (if applicable) -->
+## Architecture
+
+- `src/env.py` — `DinoEnv`: Gymnasium environment implementing Chrome Dino physics from Chromium source constants. 20-dim observation vector, 3 discrete actions (noop/jump/duck), AABB collision.
+- `scripts/train.py` — PPO training with SubprocVecEnv parallelism, eval callbacks, checkpointing.
+- `scripts/evaluate.py` — Model evaluation with score statistics.
+- `2018-implementation/` — Archived: supervised CNN (TensorFlow).
+- `2023-implementation/` — Archived: DQN + Selenium + OCR.
 
 ## Key Architecture Decisions
 

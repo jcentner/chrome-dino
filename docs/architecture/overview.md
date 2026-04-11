@@ -1,34 +1,50 @@
 # chrome-dino — Architecture Overview
 
-## Status: Draft
-
-<!-- This document should be fleshed out by the autonomous builder during Phase 0 or Phase 1. -->
-
 ## Overview
 
-AI model that plays chrome://dino
+PPO agent that plays Chrome Dino via a headless Python environment. Two components: the game simulation and the RL training pipeline.
 
 ## High-Level Architecture
 
-<!-- TODO: Describe the system's major components and how they interact. -->
+```
+┌─────────────┐     ┌──────────────────┐     ┌──────────────┐
+│ DinoEnv     │────▶│ PPO (SB3)        │────▶│ Trained Model│
+│ (Gymnasium) │◀────│ 16 parallel envs │     │ (.zip)       │
+└─────────────┘     └──────────────────┘     └──────────────┘
+     │                     │
+     │ obs (20-dim)        │ TensorBoard
+     │ reward, done        │ logs
+     │ action (0/1/2)      │
+```
 
 ## Key Components
 
-<!-- TODO: List and describe the main modules/packages. -->
+| Component | File | Purpose |
+|-----------|------|---------|
+| `DinoEnv` | `src/env.py` | Gymnasium environment: Chrome Dino physics, collision detection, obstacle spawning |
+| Training script | `scripts/train.py` | PPO setup, parallel envs (SubprocVecEnv), checkpointing, eval callbacks |
+| Evaluation script | `scripts/evaluate.py` | Load model, run episodes, report statistics |
 
 ## Data Flow
 
-<!-- TODO: Describe how data flows through the system. -->
+1. **Observation**: 20-dim float vector → speed, T-Rex state (y, vy, jumping, ducking), 3 nearest obstacles (dx, y, w, h, type)
+2. **Action**: Discrete(3) → 0=noop, 1=jump, 2=duck
+3. **Reward**: speed/MAX_SPEED per frame (survival), -10 on death
+4. **Episode**: Resets on collision. Speed ramps from 6→13 over time.
 
 ## Technology Choices
 
-- **Language**: Python
-
-<!-- TODO: Add framework, database, and other technology choices as ADRs are created. -->
+- **Language**: Python 3.12
+- **RL Framework**: Stable-Baselines3 (PPO, MlpPolicy)
+- **Env Framework**: Gymnasium
+- **Deep Learning**: PyTorch (CUDA 13.0)
+- **Physics source**: Chromium `dino_game/` TypeScript
 
 ## Constraints
 
-<!-- TODO: Document technical constraints (memory, CPU, network, etc.) -->
+- MLP policy is CPU-bound (GPU underutilized for this workload)
+- Environment runs headless — no display required for training
+- Obstacle gap and physics constants must match Chromium source
 
 ## Related Docs
 
