@@ -1,11 +1,13 @@
 # chrome-dino — Current State
 
-**Phase Status**: In Progress — Multi-approach exploration (heuristic done → browser-native PPO next)
+**Phase Status**: Blocked — Browser-native PPO training running (~17K/100K steps, ~36 min remaining, ep_len=127 flat)
 
 ## What Exists
 
 - `src/env.py` — Headless Dino game environment (Gymnasium), v3 with action_delay, frame_skip, speed-dependent jump, endJump velocity cap
+- `src/chrome_env.py` — NEW: ChromeDinoEnv — Gymnasium wrapper around Chrome's real game via JS frame-stepping (~400 steps/sec)
 - `scripts/train.py` — PPO training pipeline with v2 env params via CLI
+- `scripts/train_browser.py` — NEW: PPO training script for browser-native approach (MlpPolicy [256,256], single env)
 - `scripts/evaluate.py` — Model evaluation with v2 env params via CLI
 - `scripts/heuristic_agent.py` — Heuristic (rule-based) browser agent: frame-stepped + real-time modes
 - `scripts/validate_browser.py` — Browser validation with adaptive sleep, action delay buffer, debug output
@@ -169,6 +171,15 @@ Chose Option 1 (JS frame-stepping) from the three proposed options. See ADR-002 
 37. Real-time scores: ~200 mean — same Selenium FPS bottleneck as PPO real-time
 38. Key insight: heuristic proves timing fidelity (not decision algorithm) is the performance bottleneck
 
+### Slice 10: Browser-Native PPO — Environment & Training
+39. Created `src/chrome_env.py`: ChromeDinoEnv Gymnasium wrapper around Chrome's real game via frame-stepping
+40. ~400 steps/sec raw, lazy Chrome connection, stuck detection with page reload recovery
+41. Optimized reset: fast JS restart (0.3s) unless stuck, full page reload (4.8s) only when needed
+42. Created `scripts/train_browser.py`: PPO training with single Chrome env, frame_skip=4, n_steps=256
+43. Started training: 100K steps, MlpPolicy [256,256], device=cpu
+44. Training at ~37 fps, policy not yet improving at 17K steps (ep_len=127, ep_rew=6.93)
+45. Committed docs update: architecture overview multi-approach diagram, vision lock v2.0 heuristic MET
+
 ## Success Target
 
 **Browser mean score > 555** — must beat the 2023 DQN implementation. **ACHIEVED: frame-stepped mean=1757 (3.2x target).**
@@ -186,12 +197,16 @@ Chose Option 1 (JS frame-stepping) from the three proposed options. See ADR-002 
 ## Remaining Work
 
 - ~~Heuristic agent~~ Done (mean=2235 frame-stepped)
-- Browser-native PPO — train PPO directly in Chrome via frame-stepping
+- ~~Browser-native PPO env + training script~~ Done (ChromeDinoEnv + train_browser.py)
+- **Browser-native PPO training** — running: `python scripts/train_browser.py --timesteps 100000 --name browser_ppo_v1 --frame-skip 4 --n-steps 256`. At ~17K/100K steps, ~36 min est. remaining. Policy not yet improving (ep_len=127, ep_rew=6.93). Model output: `models/browser_ppo_v1/`, logs: `logs/browser_ppo_v1/`.
+- Browser-native PPO evaluation — after training finishes (5-episode eval built into train_browser.py)
+- Update cross-approach comparison table with browser PPO results
 - Cross-approach narrative in project-history.md
 - Consider domain randomization (OQ-003) if real-time play becomes a goal
 
 ## Blocked / Unresolved
 
+- **Browser-native PPO training in progress** — must wait ~36 min for 100K steps to complete. Policy flat so far; may need hyperparameter tuning or more steps.
 - OQ-003: Domain randomization — deferred, not needed for current success criteria
 
 ## Vision Expansion Proposal
@@ -241,7 +256,11 @@ Options are not mutually exclusive. My recommendation in order of value:
 ## Files Modified This Session
 
 - `scripts/heuristic_agent.py` — NEW: Heuristic browser agent (frame-stepped + real-time)
+- `src/chrome_env.py` — NEW: ChromeDinoEnv Gymnasium wrapper (frame-stepping, stuck detection)
+- `scripts/train_browser.py` — NEW: Browser-native PPO training script
 - `README.md` — Added heuristic results to comparison table
-- `roadmap/CURRENT-STATE.md` — Updated with heuristic results, cross-approach comparison
-- `docs/vision/VISION-LOCK.md` — v2.0: multi-approach scope
+- `roadmap/CURRENT-STATE.md` — Updated with heuristic results, browser PPO progress
+- `docs/vision/VISION-LOCK.md` — v2.0: multi-approach scope, heuristic MET
+- `docs/architecture/overview.md` — Multi-approach diagram, component table
 - `docs/vision/archive/VISION-LOCK.v1.md` — Archived v1.3
+- `.github/copilot-instructions.md` — Multi-approach context
