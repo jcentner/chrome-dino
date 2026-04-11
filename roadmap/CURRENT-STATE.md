@@ -20,16 +20,16 @@
 
 ## Results
 
-### v2 Headless Evaluation (100 episodes, action_delay=1, frame_skip=2)
+### v2 Headless Evaluation (50 episodes, action_delay=1, frame_skip=2)
 
 | Metric | Value |
 |--------|-------|
-| Mean score | 1,710 |
-| Max score | 3,014 |
-| Min score | 712 |
-| Median score | 1,931 |
-| 90th percentile | 2,440 |
-| Training progress | 775K/2M steps (best model saved at ~575K) |
+| Mean score | 2,340 |
+| Max score | 5,673 |
+| Min score | 733 |
+| Median score | 2,207 |
+| 90th percentile | 2,991 |
+| Training progress | 885K/2M steps (best model improving, training ongoing) |
 
 ### v1 Headless Evaluation (100 episodes, no delay/skip) — for comparison
 
