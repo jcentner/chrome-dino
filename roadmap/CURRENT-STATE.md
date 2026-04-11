@@ -1,6 +1,6 @@
 # chrome-dino — Current State
 
-**Phase Status**: In Progress — v3 training running (endJump cap fix), browser validation pending
+**Phase Status**: Blocked: Strategy pivot needed — incremental physics fixes not converging, requires human decision on approach
 
 ## What Exists
 
@@ -8,7 +8,7 @@
 - `scripts/train.py` — PPO training pipeline with v2 env params via CLI
 - `scripts/evaluate.py` — Model evaluation with v2 env params via CLI
 - `scripts/validate_browser.py` — Browser validation with adaptive sleep, action delay buffer, debug output
-- `models/ppo_dino_v3/` — Training in progress (~875K/2M steps)
+- `models/ppo_dino_v3/` — v3 model (best at ~875K steps, training continuing to 2M)
 - `models/ppo_dino_v2/` — Archived v2 model (headless mean=2340, browser mean=210)
 - `models/ppo_dino_v1/` — Archived v1 model (headless mean=2247, browser mean=190)
 - `logs/ppo_dino_v3/` — TensorBoard training logs
@@ -21,39 +21,75 @@
 
 ## Results
 
-### v3 Training In Progress (action_delay=1, frame_skip=2, endJump cap)
+### v3 Headless (50 episodes, action_delay=1, frame_skip=2, endJump cap)
 
 | Metric | Value |
 |--------|-------|
-| Training progress | ~875K / 2M steps (43.7%) |
-| Mean score (latest) | 1,943 |
-| Max score (latest) | 3,004 |
-| Min score (latest) | 1,429 |
-| Trend | Steadily climbing |
+| Mean score | 2,365 |
+| Max score | 4,479 |
+| Min score | 1,869 |
+| Note | Best model at ~875K steps; more robust than v2 (min 1869 vs 733) |
 
-### v2 Results (archived)
+### v3 Browser Validation (10 episodes) — FAILED
 
-| Metric | Headless | Browser |
-|--------|----------|---------|
-| Mean score | 2,340 | 210 |
-| Max score | 5,673 | 241 |
-| Transfer | — | 9% |
-| Verdict | **Similar to v1 in browser — endJump cap was missing** |
+| Metric | Value |
+|--------|-------|
+| Mean score | 256 |
+| Max score | 423 |
+| Min score | 190 |
+| Transfer | **10.8%** |
+| Verdict | **Marginal improvement over v2. Approach not converging.** |
 
-### v1 Results (archived)
+### Transfer Ratio Trend (not converging)
 
-| Metric | Headless | Browser |
-|--------|----------|---------|
-| Mean score | 2,247 | 190 |
-| Transfer | — | 8% |
+| Version | Physics Fix | Headless Mean | Browser Mean | Transfer |
+|---------|-------------|---------------|--------------|----------|
+| v1 | None | 2,247 | 190 | 8.5% |
+| v2 | action_delay, frame_skip, speed-dep jump | 2,340 | 210 | 9.0% |
+| v3 | + endJump velocity cap | 2,365 | 256 | 10.8% |
+| **Target** | | | **>555** | **>23.5%** |
 
-## Root Cause Found — endJump Velocity Cap
+### v3 Training Progress (still running, PID 186111)
 
-**The breakthrough**: Chrome's `trex.ts:483-520` caps upward velocity to `DROP_VELOCITY` (5.0) once the dino passes `maxJumpHeight`. This limits jump peak from ~101 (raw ballistic) to ~87 (with cap + Math.round). Our env had no such cap, so the model trained to rely on heights Chrome never allows.
+| Metric | Value |
+|--------|-------|
+| Progress | ~1.3M / 2M steps (66%) |
+| Eval mean (5ep) | ~1,750 (plateau since ~800K) |
+| Best model | ~875K steps (mean_eval=1,943) |
 
-**Discovery method**: Injected JS to capture Chrome's actual frame-by-frame jump data. Compared full 20-dim observation vectors between headless and browser — observations were near-identical, but Chrome trex_y peaked at 64-67 (polling) vs our 99-101 (no cap).
+## Critical Finding — Timing Mismatch is the Real Gap
 
-**Fix**: Added `MIN_JUMP_HEIGHT=30`, `MAX_JUMP_HEIGHT=63`, `reached_min_height` state variable. When `trex_y >= MAX_JUMP_HEIGHT` and `reached_min_height`, cap `trex_vy` to `DROP_VELOCITY=5.0`. Env peak now ~83 at speed 7.6 (Chrome ~87, ~4px difference from Math.round).
+The endJump velocity cap was NOT the primary bottleneck. After implementing it and validating in browser, the root cause is a **systematic timing mismatch**:
+
+- **Trained**: frame_skip=2 → model expects 2.0 game frames per step (33.3ms at 60fps)
+- **Browser**: Chrome under Selenium runs at ~51fps → only **1.70 game frames per step** (28.3ms)
+- **15% systematic temporal error** — not fixable by physics constant tuning
+- Over a 16-step jump arc, the obstacle is **33px behind** where the model expects
+- The dino lands on obstacles that haven't passed underneath yet
+
+Evidence:
+- Measured obstacle Δx per step: **11.7px** (expected: 13.7px at 2 frames × speed 6.86)
+- Effective frames/step: **1.70** (target: 2.00)
+- This explains ALL three failure versions — the timing, not physics constants, dominates
+
+The 2023 DQN scored 555 because it trained directly in the browser, learning actual Chrome timing.
+
+## Strategy Pivot — Human Decision Needed
+
+Three options, in order of recommended leverage:
+
+### Option 1: JS Frame-Stepping (OQ-002) — recommended first
+Inject JS to pause Chrome's `requestAnimationFrame` loop and step the game frame-by-frame from Python. Makes browser timing identical to headless. Current v3 model should work with zero retraining. **Definitive diagnostic**: proves whether physics are correct or reveals remaining bugs.
+- Tradeoff: Game runs in slow-motion (not real-time)
+- Effort: ~1 session to implement
+
+### Option 2: Train with Measured Browser Timing
+Measure Chrome's actual frame interval distribution, set frame_skip or add fractional frame_skip to match. Retrain with realistic timing parameters.
+- Tradeoff: Another training cycle. Timing may vary across machines.
+
+### Option 3: Domain Randomization on Frame Timing
+Train with frame_skip sampled from [1, 3] each step. Produces policy robust to timing variance.
+- Tradeoff: Slower convergence, may compromise peak headless performance.
 
 ## What Was Done This Session
 
@@ -81,22 +117,24 @@
 15. Added journal narrative to project-history.md
 16. Addressed all reviewer findings (Math.round comment, pytest.approx, speed_drop test)
 
-### Slice 5: v3 Training (in progress)
+### Slice 5: v3 Training & Evaluation
 17. Started v3 training: 2M steps, same params, with endJump cap active
-18. Training at ~875K steps, mean=1,943 and climbing
+18. Headless eval of best model (50ep): mean=2365, max=4479, min=1869
+
+### Slice 6: v3 Browser Validation — FAILED
+19. Browser validation (10ep): mean=256, max=423 — only marginal improvement
+20. Obstacle movement analysis: 1.70 frames/step vs expected 2.00 (Chrome ~51fps)
+21. Concluded: timing mismatch dominates, not physics constants
+
+### Slice 7: Strategic Analysis
+22. Quantified non-convergence: 8% → 9% → 11% transfer across three iterations
+23. Identified root cause: deterministic fixed-timestep sim vs stochastic variable-timestep browser
+24. Proposed three strategy pivots (JS frame-stepping, measured timing, domain randomization)
+25. **Set status to Blocked — human decision needed on strategy pivot**
 
 ## Success Target
 
 **Browser mean score > 555** — must beat the 2023 DQN implementation.
-
-## What's Next
-
-1. **Wait for v3 training** to complete (2M steps)
-2. **Headless evaluation** of v3 best model (100 episodes)
-3. **Browser validation** — `python scripts/validate_browser.py --model models/ppo_dino_v3/best/best_model.zip --episodes 10 --debug`
-   - ChromeDriver: `/mnt/c/Temp/chromedriver.exe --port=9515`
-4. **If browser > 555**: Phase 1 complete, enter vision expansion mode
-5. **If still insufficient**: Consider domain randomization (OQ-003), JS frame-stepping (OQ-002)
 
 ## Decisions Made This Session
 
@@ -105,18 +143,23 @@
 - validate_browser.py --action-delay default 0 (Selenium already adds ~1 frame of latency)
 - Resolved OQ-001: use both action delay and frame skip together
 - Training defaults: action_delay=1, frame_skip=2, clear_time_ms=500
+- **Strategic: incremental physics fixes not converging → need strategy pivot**
 
 ## Blocked / Unresolved
 
-- v3 training in progress (PID 186111, ~875K/2M)
-- OQ-002: JS frame-stepping — deferred pending v3 browser validation
-- OQ-003: Domain randomization — deferred pending v3 browser validation
+- **BLOCKING**: Strategy pivot decision — which approach to take (see options above)
+- v3 training still running (PID 186111, ~1.3M/2M) but results may not matter if strategy changes
+- OQ-002: JS frame-stepping — now the recommended next step
+- OQ-003: Domain randomization — an alternative approach
 
 ## Files Modified This Session
 
-- `src/env.py` — endJump velocity cap (MIN_JUMP_HEIGHT, MAX_JUMP_HEIGHT, reached_min_height), Math.round comment
+- `src/env.py` — endJump velocity cap (MIN_JUMP_HEIGHT, MAX_JUMP_HEIGHT, reached_min_height), Math.round comment, parenthesized condition
 - `scripts/validate_browser.py` — action delay buffer, adaptive sleep, step-pad-ms, debug output, action-delay default fix
-- `tests/test_env_v2.py` — 7 new endJump cap tests (37 total), pytest.approx fix
+- `tests/test_env_v2.py` — 7 new endJump cap tests (37 total), pytest.approx fix, speed_drop interaction test
 - `docs/architecture/decisions/001-env-v2-sim-to-real-fixes.md` — endJump cap section
+- `docs/architecture/overview.md` — v3 endJump cap note
+- `docs/reference/glossary.md` — endJump cap definition
+- `project-history.md` — Journal narrative of debugging session
 - `docs/reference/glossary.md` — endJump cap definition
 - `project-history.md` — Journal narrative of debugging session
