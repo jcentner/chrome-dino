@@ -81,7 +81,7 @@ The agent learned to consistently survive for nearly a minute of game time, hand
 | **Environment** | Screen capture + manual labels | Selenium + OCR | Headless physics clone |
 | **Training speed** | N/A (offline) | ~1 FPS | ~3,000+ FPS |
 | **Actions** | Jump | Jump | Jump, Duck, Noop |
-| **Best score** | ~200 (limited by my skill) | ~555 (170k/360k steps) | 4,729 (2M steps) |
+| **Best score** | ~200 (limited by my skill) | ~555 (170k/360k steps) | 4,729 (headless) / 204 (browser) |
 | **Mean score** | Unknown | Unknown | 2,247 (headless) / 190 (browser) |
 | **Who wrote it** | Me (undergrad, 2 months) | Me (professional, 2 days) | AI agent (I chose options, ~1 hour) |
 | **Platform** | Windows only | Windows only | Linux (any OS) |
@@ -100,19 +100,43 @@ Results (5 episodes, Chrome 147):
 | Headless mean | 2,247 |
 | Browser/Headless ratio | 8% |
 
-The agent consistently clears multiple obstacles (~3x random baseline of ~70). The score gap is entirely explained by latency: the model was trained at frame-perfect step timing, but the Selenium→Chrome→JS→Python round-trip introduces ~3-20ms per action cycle, giving the agent ~20Hz polling instead of 60fps. At speed 7+, that delay means the agent sees obstacles jump 21px between observations instead of 7px. It still plays recognizably well — it jumps cacti, times landings, and reacts to obstacle spacing. The physics transfer is valid; the bottleneck is the bridge.
+**This is bad.** A mean score of 190 is worse than my 2018 supervised model (~200) and far worse than the 2023 DQN (~555). The 2026 agent that looked brilliant in headless — 13x over random, peaks of 4,729 — can barely survive 2 seconds of real obstacles.
+
+The initial instinct was to hand-wave this away as "Selenium latency." Doubling the polling rate from 15Hz to 30Hz gave zero improvement, which disproved that theory. The real problem is deeper: **the agent learned the wrong game.**
+
+### What Went Wrong: Sim-to-Real Gap
+
+Analysis of the Chrome game source revealed multiple training-vs-deployment mismatches:
+
+1. **Action latency**: The headless env executes actions instantly — jump in frame N takes effect in frame N. In Chrome via Selenium, the jump keystroke arrives 1-2 frames later. The model learned "just-in-time" jumping with zero margin. Any delay = death.
+
+2. **Speed-dependent jumping**: In Chrome, `jumpVelocity = initialJumpVelocity - (speed / 10)`. At speed 6, the jump is 12% higher than our constant-velocity env. At speed 13, it's 28% higher. Chrome compensates for faster obstacles with proportionally higher jumps. Our agent never experienced this.
+
+3. **Observation mapping bugs**: The browser validation code computed pterodactyl Y positions using the wrong reference point, making all heights map to ~0. The agent couldn't distinguish "duck under" from "jump over."
+
+4. **The irony**: The 2023 DQN trained at 1 FPS *in Chrome*. Agonizingly slow, but it learned the real game with real latency, real physics, real timing. The 2026 PPO trained 3,000x faster but learned a subtly different game. Speed of training is worthless if the training doesn't transfer.
+
+### Lesson: Sim-to-Real is the Hard Part
+
+This is actually a well-known problem in robotics RL. Training in simulation is fast but building a faithful simulation is the real challenge. The headless Dino env had the right constants from Chromium source — but getting the constants right isn't enough. You also need to model the *deployment conditions*: action latency, frame timing, the exact physics of how the game processes inputs.
+
+The fix isn't complicated: train with action delay (1-2 frame buffer before actions take effect) and frame skip (advance multiple game frames per agent step). This forces the agent to learn anticipatory behavior instead of reactive behavior. It's a 20-line code change. But you have to know it's needed, and I didn't check until the browser score came back.
+
+**Status**: Fixes identified, retraining scheduled. Target: browser mean > 555 (beat the 2023 DQN).
 
 ## What This Shows
 
-The interesting story isn't "AI plays game." That's been done. The story is the progression:
+The interesting story isn't "AI plays game." That's been done. The story is the progression — and the failure:
 
 1. **2018**: I didn't know enough to pick the right approach. Supervised learning for a game is like memorizing answers instead of learning math. But I learned fundamentals — data collection, model training, the gap between theory and making something work.
 
-2. **2023**: I knew the right approach (RL) but was still fighting the environment. Screen capture, OCR, browser automation — all of it was overhead that had nothing to do with the actual learning problem. The engineering dominated the science.
+2. **2023**: I knew the right approach (RL) but was still fighting the environment. Screen capture, OCR, browser automation — all of it was overhead that had nothing to do with the actual learning problem. The engineering dominated the science. But the agent trained *in the real game* and scored 555.
 
-3. **2026**: The AI agent made the same architectural decisions I would have — but faster, and it wrote all the code. The bottleneck moved from "can I implement this?" to "do I know what to ask for?" The value shifted entirely to judgment calls: which algorithm, what observation space, headless vs browser.
+3. **2026 (v1)**: The AI agent built a headless clone and trained 3,000x faster. The headless scores looked incredible — mean 2,247, peak 4,729. But in the real browser: mean 190. Worse than both prior implementations. The fastest training doesn't matter if you're training on the wrong game. Sim-to-real transfer is the hard part, and we skipped it.
 
-Each version is 10x faster to build and produces better results. The skill that matters changed from "can you code a neural network" to "do you know which neural network to code" to "can you evaluate whether the AI picked the right one."
+The humbling part: the 2023 DQN, despite being painfully slow and architecturally crude, produced a better real-world agent because it trained where it would be deployed. The 2026 approach optimized the wrong thing (headless training speed) while assuming the simulation was faithful. It wasn't.
+
+Each version is faster to build. Each version *should* produce better results. But the 2026 version proved that speed without fidelity is worse than slow with accuracy. The fix is known (train with action delay and frame skip to match deployment conditions), and the iteration continues.
 
 ## Technical Notes
 

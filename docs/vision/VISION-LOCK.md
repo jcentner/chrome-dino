@@ -1,6 +1,6 @@
 # chrome-dino — Vision Lock
 
-> **Version**: 1.1
+> **Version**: 1.2
 > **Updated**: 2026-04-10
 > **Status**: Active
 > **Rules**: Single versioned document, updated in place. Minor versions (1.1) for within-scope updates; major versions (2.0) for scope changes requiring human approval. Completed visions are archived to `docs/vision/archive/` before replacement.
@@ -21,16 +21,19 @@ A headless Python recreation of Chrome Dino's physics (sourced from Chromium Typ
 
 | Criterion | Measure | Status |
 |-----------|---------|--------|
-| Agent competence | Mean score >1000 over 100 eval episodes | **Met**: mean=2,247 |
-| Training efficiency | Converges within 2M timesteps on RTX 3070 Ti | **Met**: converged at ~1.5M steps |
-| Environment fidelity | Agent behavior transfers plausibly to real Chrome Dino | **Met**: mean=190 in browser (3x random) |
-| Narrative completeness | project-history.md ready for blog adaptation | **Met**: all three iterations with results |
+| **Browser competence** | Mean browser score > 555 (beats 2023 DQN) | **NOT MET**: mean=190 |
+| Browser stretch | Mean browser score > 1000 | Not started |
+| Training efficiency | Converges within 4M timesteps on RTX 3070 Ti | Met for v1, re-eval for v2 |
+| Environment fidelity | Headless score predicts browser score within 2x | **NOT MET**: 12x gap (2247 vs 190) |
+| Narrative completeness | project-history.md ready for blog adaptation | In progress |
 
 ## Where We're Going
 
-1. ~~Train a PPO agent that consistently scores >1000 (human-competitive)~~ **Done**
-2. ~~Validate agent behavior against real Chrome Dino in browser~~ **Done**
-3. ~~Complete project-history.md with results and analysis~~ **Done**
+1. ~~Train a PPO agent in a headless clone~~ **Done (v1 — but transfers poorly)**
+2. Fix sim-to-real gap: action delay, speed-dependent jump, observation mapping
+3. Retrain with corrected environment (v2)
+4. Achieve browser mean score > 555 (beat 2023 DQN)
+5. Complete project-history.md with the full iteration story
 
 ## Explicit Non-Goals
 
@@ -68,9 +71,10 @@ A headless Python recreation of Chrome Dino's physics (sourced from Chromium Typ
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| Headless env diverges from real game | Medium | High | Validate on browser; constants from source |
+| Headless env diverges from real game | **Realized** | High | Root cause analyzed, fixes planned. See sim-to-real-analysis.md |
 | PPO plateaus below target score | Low | Medium | Tune hyperparameters; try different reward shaping |
 | CUDA compatibility issues | Low | Low | MLP policy works on CPU too |
+| Action latency in deployment | **Realized** | High | Train with action delay and frame skip |
 
 ## Changelog
 
@@ -78,3 +82,4 @@ A headless Python recreation of Chrome Dino's physics (sourced from Chromium Typ
 |---------|------|--------|
 | 1.0 | 2026-04-10 | Initial vision: PPO agent for Chrome Dino with headless environment |
 | 1.1 | 2026-04-10 | All goals met: agent trained (mean=2247), browser validated (mean=190), project-history.md complete |
+| 1.2 | 2026-04-10 | **Honest reassessment**: browser score 190 is terrible (worse than 2023 DQN at 555). Redefined success criteria around browser score. Added sim-to-real gap fixes as goals. |
