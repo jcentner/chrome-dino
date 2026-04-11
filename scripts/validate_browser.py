@@ -94,6 +94,8 @@ def game_state_to_obs(state: dict, ground_y: float) -> np.ndarray:
     obs[0] = state["speed"] / MAX_SPEED
 
     # Convert canvas Y (top-down, ground_y = ground position) to our bottom-up
+    # ground_line = groundYPos + TREX_HEIGHT (93 + 47 = 140 in Chrome)
+    ground_line = ground_y + TREX_HEIGHT
     trex = state["tRex"]
     trex_y_bottomup = max(0, ground_y - trex["y"])
     obs[1] = trex_y_bottomup / 100.0
@@ -112,8 +114,8 @@ def game_state_to_obs(state: dict, ground_y: float) -> np.ndarray:
         if i < len(browser_obs):
             o = browser_obs[i]
             obs[base + 0] = (o["x"] - TREX_START_X) / CANVAS_WIDTH
-            # Convert obstacle Y to bottom-up
-            obstacle_y_bottomup = max(0, ground_y - o["y"] - o["h"])
+            # Convert obstacle Y to bottom-up using ground_line
+            obstacle_y_bottomup = max(0, ground_line - o["y"] - o["h"])
             obs[base + 1] = obstacle_y_bottomup / 100.0
             obs[base + 2] = o["w"] / 100.0
             obs[base + 3] = o["h"] / 100.0

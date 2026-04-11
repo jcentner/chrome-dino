@@ -18,10 +18,10 @@ Questions that need resolution before or during implementation. Use this to trac
 
 ### OQ-001: Frame skip vs. action delay — which is more important?
 
-**Status**: Open
+**Status**: Resolved
 **Priority**: High
 **Context**: Both simulate deployment latency. Frame skip (N game frames per step) and action delay (action buffered for D frames) address different aspects of the timing mismatch. Training time increases with frame skip.
-**Current thinking**: Use both — action_delay=1 + frame_skip=2 models a realistic 2-3 frame observation-to-effect latency. Test each independently to measure contribution.
+**Resolution**: Use both — `action_delay=1` + `frame_skip=2` models a realistic 2-3 frame observation-to-effect latency. Implemented in ADR-001.
 
 ### OQ-002: JS frame-stepping as alternative to latency training
 

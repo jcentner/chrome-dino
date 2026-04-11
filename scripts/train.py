@@ -23,9 +23,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.env import DinoEnv
 
 
-def make_env(seed: int):
+def make_env(seed: int, action_delay: int = 0, frame_skip: int = 1,
+             clear_time_ms: float = 500):
     def _init():
-        env = DinoEnv()
+        env = DinoEnv(
+            action_delay=action_delay,
+            frame_skip=frame_skip,
+            clear_time_ms=clear_time_ms,
+        )
         env.reset(seed=seed)
         return env
     return _init
@@ -41,6 +46,12 @@ def main():
                         help="Number of parallel environments")
     parser.add_argument("--resume", type=str, default=None,
                         help="Path to model zip to resume from")
+    parser.add_argument("--action-delay", type=int, default=1,
+                        help="Action delay in frames (simulates deployment latency)")
+    parser.add_argument("--frame-skip", type=int, default=2,
+                        help="Internal frames per env step (matches browser polling)")
+    parser.add_argument("--clear-time-ms", type=float, default=500,
+                        help="Milliseconds before obstacles spawn")
     args = parser.parse_args()
 
     project_root = Path(__file__).parent.parent
@@ -55,11 +66,18 @@ def main():
         print(f"GPU: {torch.cuda.get_device_name(0)}")
 
     # Vectorized environments for parallel rollouts
-    env = SubprocVecEnv([make_env(i) for i in range(args.n_envs)])
+    env_kwargs = dict(
+        action_delay=args.action_delay,
+        frame_skip=args.frame_skip,
+        clear_time_ms=args.clear_time_ms,
+    )
+    env = SubprocVecEnv(
+        [make_env(i, **env_kwargs) for i in range(args.n_envs)]
+    )
     env = VecMonitor(env, str(log_dir))
 
     # Eval environment (single, deterministic)
-    eval_env = SubprocVecEnv([make_env(1000)])
+    eval_env = SubprocVecEnv([make_env(1000, **env_kwargs)])
     eval_env = VecMonitor(eval_env, str(log_dir / "eval"))
 
     # Callbacks

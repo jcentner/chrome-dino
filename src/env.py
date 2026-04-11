@@ -8,10 +8,12 @@ This is a faithful recreation of the game mechanics for fast RL training,
 not a pixel-perfect visual clone.
 """
 
+from collections import deque
+from typing import Optional
+
 import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
-from typing import Optional
 
 
 # ---------------------------------------------------------------------------
@@ -93,13 +95,35 @@ class DinoEnv(gym.Env):
 
     The environment runs at an accelerated "logical frame" rate —
     no real-time delay, enabling ~100k steps/sec on CPU.
+
+    v2 parameters:
+        action_delay: Number of frames to delay action execution (simulates
+            deployment latency). 0 = instant (v1 behavior).
+        frame_skip: Number of internal game frames per env.step() call.
+            1 = one frame per step (v1 behavior).
+        clear_time_ms: Milliseconds before obstacles start spawning.
+            500 = v1 default, 3000 = Chrome default.
     """
 
     metadata = {"render_modes": ["human", "ansi"], "render_fps": 60}
 
-    def __init__(self, render_mode: Optional[str] = None):
+    def __init__(
+        self,
+        render_mode: Optional[str] = None,
+        action_delay: int = 0,
+        frame_skip: int = 1,
+        clear_time_ms: float = CLEAR_TIME_MS,
+    ):
         super().__init__()
+        if action_delay < 0:
+            raise ValueError(f"action_delay must be >= 0, got {action_delay}")
+        if frame_skip < 1:
+            raise ValueError(f"frame_skip must be >= 1, got {frame_skip}")
+
         self.render_mode = render_mode
+        self.action_delay = action_delay
+        self.frame_skip = frame_skip
+        self.clear_time_ms = clear_time_ms
 
         # Actions: 0=noop, 1=jump, 2=duck
         self.action_space = spaces.Discrete(3)
@@ -115,6 +139,7 @@ class DinoEnv(gym.Env):
         )
 
         self._rng = np.random.default_rng()
+        self._action_buffer: deque[int] = deque()
         self.reset()
 
     def reset(self, seed=None, options=None):
@@ -140,17 +165,54 @@ class DinoEnv(gym.Env):
         self.game_over = False
         self.score = 0.0
 
+        # Reset action buffer: pre-fill with noop actions
+        self._action_buffer.clear()
+        for _ in range(self.action_delay):
+            self._action_buffer.append(0)  # noop
+
         return self._get_obs(), self._get_info()
 
     def step(self, action):
         assert not self.game_over, "Call reset() after game over"
 
+        # --- Action delay buffer ---
+        if self.action_delay > 0:
+            self._action_buffer.append(action)
+            effective_action = self._action_buffer.popleft()
+        else:
+            effective_action = action
+
+        # --- Frame skip: run K internal frames ---
+        total_reward = 0.0
+        for _frame in range(self.frame_skip):
+            obs, reward, terminated, truncated, info = self._step_internal(
+                effective_action if _frame == 0 else self._get_held_action()
+            )
+            total_reward += reward
+            if terminated or truncated:
+                return obs, total_reward, terminated, truncated, info
+
+        return obs, total_reward, False, False, info
+
+    def _get_held_action(self) -> int:
+        """Return held action for frame-skip continuation frames.
+
+        During frame skip, frames after the first continue with:
+        - duck (2) if ducking or speed-dropping (duck must be held)
+        - noop (0) otherwise (jump is a one-shot trigger)
+        """
+        if self.ducking or self.speed_drop:
+            return 2
+        return 0
+
+    def _step_internal(self, action: int):
+        """Execute a single internal game frame."""
         # --- Process action ---
         if action == 1 and not self.jumping:
-            # Jump
+            # Jump — speed-dependent velocity (Chromium: trex.ts:469)
             self.jumping = True
             self.ducking = False
-            self.trex_vy = INITIAL_JUMP_VELOCITY
+            self.trex_vy = INITIAL_JUMP_VELOCITY + self.speed / 10.0
             self.speed_drop = False
         elif action == 2:
             # Duck
@@ -216,7 +278,7 @@ class DinoEnv(gym.Env):
     def _maybe_spawn_obstacle(self):
         """Spawn obstacles following Chromium's gap/speed logic."""
         # Don't spawn during clear time
-        if self.frame_count < (CLEAR_TIME_MS / 1000.0) * FPS:
+        if self.frame_count < (self.clear_time_ms / 1000.0) * FPS:
             return
 
         # Check if we need a new obstacle
@@ -293,7 +355,10 @@ class DinoEnv(gym.Env):
         # Game state
         obs[0] = self.speed / MAX_SPEED
         obs[1] = self.trex_y / 100.0  # normalize jump height
-        obs[2] = self.trex_vy / INITIAL_JUMP_VELOCITY
+        obs[2] = np.clip(
+            self.trex_vy / (INITIAL_JUMP_VELOCITY + MAX_SPEED / 10.0),
+            -1.0, 1.0,
+        )
         obs[3] = 1.0 if self.jumping else 0.0
         obs[4] = 1.0 if self.ducking else 0.0
 

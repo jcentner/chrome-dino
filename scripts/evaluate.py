@@ -22,10 +22,21 @@ def main():
     parser.add_argument("--episodes", type=int, default=100, help="Number of eval episodes")
     parser.add_argument("--render", action="store_true", help="Show ANSI rendering")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    parser.add_argument("--action-delay", type=int, default=1,
+                        help="Action delay in frames (match training env)")
+    parser.add_argument("--frame-skip", type=int, default=2,
+                        help="Internal frames per env step (match training env)")
+    parser.add_argument("--clear-time-ms", type=float, default=500,
+                        help="Milliseconds before obstacles spawn")
     args = parser.parse_args()
 
     model = PPO.load(args.model)
-    env = DinoEnv(render_mode="ansi" if args.render else None)
+    env = DinoEnv(
+        render_mode="ansi" if args.render else None,
+        action_delay=args.action_delay,
+        frame_skip=args.frame_skip,
+        clear_time_ms=args.clear_time_ms,
+    )
 
     scores = []
     episode_lengths = []

@@ -21,7 +21,7 @@ PPO agent that plays Chrome Dino via a headless Python environment. Two componen
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| `DinoEnv` | `src/env.py` | Gymnasium environment: Chrome Dino physics, collision detection, obstacle spawning |
+| `DinoEnv` | `src/env.py` | Gymnasium environment: Chrome Dino physics, collision detection, obstacle spawning. v2 adds `action_delay`, `frame_skip`, `clear_time_ms`, and speed-dependent jump. |
 | Training script | `scripts/train.py` | PPO setup, parallel envs (SubprocVecEnv), checkpointing, eval callbacks |
 | Evaluation script | `scripts/evaluate.py` | Load model, run episodes, report statistics |
 | Browser validation | `scripts/validate_browser.py` | Validate model against real Chrome Dino via Selenium + JS Runner API |
@@ -29,9 +29,9 @@ PPO agent that plays Chrome Dino via a headless Python environment. Two componen
 ## Data Flow
 
 1. **Observation**: 20-dim float vector → speed, T-Rex state (y, vy, jumping, ducking), 3 nearest obstacles (dx, y, w, h, type)
-2. **Action**: Discrete(3) → 0=noop, 1=jump, 2=duck
-3. **Reward**: speed/MAX_SPEED per frame (survival), -10 on death
-4. **Episode**: Resets on collision. Speed ramps from 6→13 over time.
+2. **Action**: Discrete(3) → 0=noop, 1=jump, 2=duck. With `action_delay=N`, actions take effect N frames later. With `frame_skip=K`, each step runs K internal frames.
+3. **Reward**: speed/MAX_SPEED per internal frame (accumulated across frame skip), -10 on death
+4. **Episode**: Resets on collision. Speed ramps from 6→13 over time. Jump height increases with speed (Chromium formula).
 
 ## Technology Choices
 

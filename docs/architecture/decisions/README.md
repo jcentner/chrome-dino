@@ -4,10 +4,9 @@ Record significant architecture decisions here. Each ADR documents the context, 
 
 ## Index
 
-<!-- ADRs are added here as they are created -->
-<!-- | ADR | Title | Status | -->
-<!-- |-----|-------|--------| -->
-<!-- | 001 | Example decision | Accepted | -->
+| ADR | Title | Status |
+|-----|-------|--------|
+| 001 | [Env v2 sim-to-real fixes](001-env-v2-sim-to-real-fixes.md) | Accepted |
 
 ## ADR Template
 
