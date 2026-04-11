@@ -1,6 +1,6 @@
 # chrome-dino — Current State
 
-**Phase Status**: Blocked: Vision Expansion — awaiting human approval
+**Phase Status**: In Progress — Multi-approach exploration (heuristic → browser-native PPO)
 
 ## What Exists
 

@@ -1,13 +1,13 @@
 # Sim-to-Real Gap Analysis
 
 **Date**: 2026-04-10
-**Context**: PPO agent scores mean=2,247 in headless env but only mean=190 in real Chrome Dino (8% transfer). This is worse than both the 2018 supervised approach (~200) and the 2023 DQN (~555 best).
+**Context**: PPO agent scores mean=2,247 in headless env but only mean=190 in real Chrome Dino (8% transfer). This is worse than both the 2018 supervised approach (peak 1,810) and the 2023 DQN (~555 mean).
 
 ## The Numbers
 
 | Implementation | Environment | Best Score | Mean Score |
 |---------------|-------------|-----------|------------|
-| 2018 supervised CNN | Real browser (human data) | ~200 | Unknown |
+| 2018 supervised CNN | Real browser (human data) | Unknown | 1,810 |
 | 2023 DQN | Real browser (trained there) | ~555 | Unknown |
 | 2026 PPO | Headless clone | 4,729 | 2,247 |
 | 2026 PPO | **Real Chrome** | **204** | **190** |

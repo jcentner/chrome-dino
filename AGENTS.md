@@ -1,6 +1,6 @@
 # chrome-dino
 
-PPO-based reinforcement learning agent that plays Chrome's offline dinosaur game. Third iteration (2018 supervised CNN → 2023 DQN+browser → 2026 PPO+headless).
+Multiple approaches to playing Chrome's offline dinosaur game, all built autonomously. (2018 supervised CNN → 2023 DQN+browser → 2026 headless PPO + heuristic + browser-native PPO).
 
 ## Conventions
 

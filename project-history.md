@@ -81,7 +81,7 @@ The agent learned to consistently survive for nearly a minute of game time, hand
 | **Environment** | Screen capture + manual labels | Selenium + OCR | Headless physics clone |
 | **Training speed** | N/A (offline) | ~1 FPS | ~3,000+ FPS |
 | **Actions** | Jump | Jump | Jump, Duck, Noop |
-| **Best score** | ~200 (limited by my skill) | Unknown | 4,479 (headless) / 4,180 (frame-stepped browser) |
+| **Best score** | 1,810 | Unknown | 4,479 (headless) / 4,180 (frame-stepped browser) |
 | **Mean score** | Unknown | ~555 | 2,365 (headless) / 1,757 (frame-stepped) / 256 (real-time) |
 | **Who wrote it** | Me (undergrad, 2 months) | Me (professional, 2 days) | AI agent (I chose options, ~1 hour) |
 | **Platform** | Windows only | Windows only | Linux (any OS) |
@@ -100,7 +100,7 @@ v1 results (5 episodes, Chrome 147):
 | Headless mean | 2,247 |
 | Browser/Headless ratio | 8% |
 
-**This is bad.** A mean score of 190 is worse than my 2018 supervised model (~200) and far worse than the 2023 DQN (~555). The 2026 agent that looked brilliant in headless — 13x over random, peaks of 4,729 — can barely survive 2 seconds of real obstacles.
+**This is bad.** A mean score of 190 is far worse than the 2023 DQN (~555) and the 2018 supervised model's peak of 1,810. The 2026 agent that looked brilliant in headless — 13x over random, peaks of 4,729 — can barely survive 2 seconds of real obstacles.
 
 The initial instinct was to hand-wave this away as "Selenium latency." Doubling the polling rate from 15Hz to 30Hz gave zero improvement, which disproved that theory. The real problem is deeper: **the agent learned the wrong game.**
 
