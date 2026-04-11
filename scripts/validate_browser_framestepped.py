@@ -330,9 +330,9 @@ def main():
                 state = json.loads(result)
 
                 if state["crashed"]:
-                    score = state["distance"] / 10.0
+                    score = round(state["distance"] * 0.025)
                     scores.append(score)
-                    print(f"  Score: {score:.0f} ({steps} steps)")
+                    print(f"  Score: {score} ({steps} steps)")
                     break
 
                 if not state["playing"]:
@@ -363,10 +363,10 @@ def main():
                 steps += 1
                 if steps % 500 == 0:
                     print(f"  step {steps}, speed={state['speed']:.1f}, "
-                          f"score={state['distance']/10:.0f}")
+                          f"score={round(state['distance']*0.025)}")
             else:
-                scores.append(state.get("distance", 0) / 10.0)
-                print(f"  Max steps reached, score={scores[-1]:.0f}")
+                scores.append(round(state.get("distance", 0) * 0.025))
+                print(f"  Max steps reached, score={scores[-1]}")
 
             time.sleep(0.5)
 
@@ -382,8 +382,8 @@ def main():
                 print(f"Std: {scores_arr.std():.0f}, "
                       f"Median: {np.median(scores_arr):.0f}")
             print(f"\nTarget: mean > 555 (2023 DQN baseline)")
-            print(f"Real-time browser (v3): mean=256")
-            print(f"Headless eval (v3): mean=2365")
+            print(f"Real-time browser (v3): mean=64")
+            print(f"Headless eval (v3): mean=591")
 
     finally:
         driver.quit()

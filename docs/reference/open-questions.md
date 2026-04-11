@@ -28,7 +28,7 @@ Questions that need resolution before or during implementation. Use this to trac
 **Status**: Resolved
 **Priority**: Medium
 **Context**: Instead of training with latency, we could step Chrome's game frame-by-frame via JS injection, giving frame-perfect control. This would make the browser environment match the headless one exactly.
-**Resolution**: Implemented and validated. JS frame-stepping overrides `performance.now()` and `requestAnimationFrame` to step Chrome's game loop deterministically. Results: browser mean=1757 (10 ep) vs 256 real-time, 74% transfer from headless (2365). Beats 2023 DQN (555) by 3.2x. See ADR-002.
+**Resolution**: Implemented and validated. JS frame-stepping overrides `performance.now()` and `requestAnimationFrame` to step Chrome's game loop deterministically. Results: browser mean=439 (10 ep) vs 64 real-time, 74% transfer from headless (591). See ADR-002.
 
 ### OQ-003: Domain randomization scope
 

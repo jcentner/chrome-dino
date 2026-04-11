@@ -255,7 +255,7 @@ def main():
                         continue
 
                     if state["crashed"]:
-                        score = state["distance"] / 10.0
+                        score = round(state["distance"] * 0.025)
                         scores.append(score)
                         print(f"  Score: {score:.0f} ({steps} steps)", flush=True)
                         time.sleep(1)
@@ -340,7 +340,7 @@ def main():
                     step_start = time.perf_counter()
                 else:
                     print(f"  Episode hit max steps ({max_steps})", flush=True)
-                    scores.append(state.get("distance", 0) / 10.0)
+                    scores.append(round(state.get("distance", 0) * 0.025))
 
             except Exception as e:
                 print(f"  [ERROR] Episode failed: {e}", flush=True)
@@ -354,8 +354,8 @@ def main():
             print(f"Browser Validation ({len(scores)} episodes)")
             print(f"{'='*50}")
             print(f"Score: mean={scores.mean():.0f}, max={scores.max():.0f}, min={scores.min():.0f}")
-            print(f"\nHeadless eval for comparison: mean=2247, max=4729")
-            ratio = scores.mean() / 2247 * 100
+            print(f"\nHeadless eval for comparison: mean=562, max=1182")
+            ratio = scores.mean() / 562 * 100
             print(f"Browser/Headless ratio: {ratio:.0f}%")
 
     finally:

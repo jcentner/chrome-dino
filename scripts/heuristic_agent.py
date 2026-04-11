@@ -291,9 +291,9 @@ def run_framestepped(driver, episodes: int, frame_skip: int, debug: bool):
             state = json.loads(result)
 
             if state["crashed"]:
-                score = state["distance"] / 10.0
+                score = round(state["distance"] * 0.025)
                 scores.append(score)
-                print(f"  Score: {score:.0f} ({steps} steps)")
+                print(f"  Score: {score} ({steps} steps)")
                 break
 
             # Stuck detection: if score hasn't changed, game loop may be dead
@@ -301,7 +301,7 @@ def run_framestepped(driver, episodes: int, frame_skip: int, debug: bool):
             if current_score == last_score:
                 stuck_count += 1
                 if stuck_count >= stuck_threshold:
-                    print(f"  STUCK at step {steps} (score={current_score/10:.0f} "
+                    print(f"  STUCK at step {steps} (score={round(current_score*0.025)} "
                           f"unchanged for {stuck_threshold} steps) — skipping")
                     need_full_reload = True
                     break
@@ -320,9 +320,9 @@ def run_framestepped(driver, episodes: int, frame_skip: int, debug: bool):
             state = json.loads(result)
 
             if state["crashed"]:
-                score = state["distance"] / 10.0
+                score = round(state["distance"] * 0.025)
                 scores.append(score)
-                print(f"  Score: {score:.0f} ({steps} steps)")
+                print(f"  Score: {score} ({steps} steps)")
                 break
 
             if debug and state["obstacles"] and steps < 300:
@@ -339,7 +339,7 @@ def run_framestepped(driver, episodes: int, frame_skip: int, debug: bool):
             steps += 1
             if steps % 500 == 0:
                 print(f"  step {steps}, speed={state['speed']:.1f}, "
-                      f"score={state['distance']/10:.0f}")
+                      f"score={round(state['distance']*0.025)}")
 
         time.sleep(0.5)
 
@@ -465,9 +465,9 @@ def run_realtime(driver, episodes: int, debug: bool):
                 break
             state = json.loads(result)
             if state["crashed"]:
-                score = state["distance"] / 10.0
+                score = round(state["distance"] * 0.025)
                 scores.append(score)
-                print(f"  Score: {score:.0f}")
+                print(f"  Score: {score}")
                 break
             if not state["playing"]:
                 break
@@ -514,9 +514,9 @@ def main():
         print(f"\nComparison:")
         print(f"  2018 supervised CNN: best=1810")
         print(f"  2023 DQN: mean=~555")
-        print(f"  2026 PPO headless: mean=2365")
-        print(f"  2026 PPO frame-stepped: mean=1757")
-        print(f"  2026 PPO real-time: mean=256")
+        print(f"  2026 PPO headless: mean=591")
+        print(f"  2026 PPO frame-stepped: mean=439")
+        print(f"  2026 PPO real-time: mean=64")
 
 
 if __name__ == "__main__":

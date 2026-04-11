@@ -315,7 +315,7 @@ class ChromeDinoEnv(gym.Env):
 
     def _state_to_info(self, state: dict) -> dict:
         return {
-            "score": state["distance"] / 10.0,
+            "score": round(state["distance"] * 0.025),
             "speed": state["speed"],
             "distance": state["distance"],
             "step_count": self._step_count,

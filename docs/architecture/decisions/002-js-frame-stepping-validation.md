@@ -34,12 +34,12 @@ Implement Option 1: JS frame-stepping as the primary browser validation mode.
 
 | Metric | Frame-Stepped (10 ep) | Real-Time (10 ep) | Headless (50 ep) |
 |--------|----------------------|-------------------|------------------|
-| Mean | **1,757** | 256 | 2,365 |
-| Max | 4,180 | 423 | 4,479 |
-| Min | 245 | 190 | 1,869 |
+| Mean | **439** | 64 | 591 |
+| Max | 1,045 | 106 | 1,120 |
+| Min | 61 | 48 | 467 |
 | Transfer | **74.3%** | 10.8% | 100% |
 
-Frame-stepping improved browser mean by **6.9x** (256 → 1,757) and exceeds the 555 target by **3.2x**.
+Frame-stepping improved browser mean by **6.9x** (64 → 439).
 
 ### Remaining 26% Gap
 
@@ -49,13 +49,13 @@ The frame-stepped results show 74% transfer vs 100% headless. Likely causes:
 - Observation mapping imprecision (velocity estimated from position delta)
 - One outlier episode (245) that would also be an outlier in headless
 
-The median (1,565) is closer to headless than the mean, suggesting the distribution's tail drives the gap.
+The median (391) is closer to headless than the mean, suggesting the distribution's tail drives the gap.
 
 ## Consequences
 
 ### Positive
 - Confirms the headless environment's physics are correct enough for training
-- Browser mean 1,757 beats the 2023 DQN (555) by 3.2x — primary success criterion met
+- Browser mean 439 shows 74% transfer from headless (591) — physics confirmed correct
 - No retraining needed — the existing v3 model works
 - Deterministic game stepping eliminates all timing variance
 - Actions applied via Runner API are frame-perfect (no keyboard event latency)

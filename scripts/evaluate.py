@@ -76,8 +76,8 @@ def main():
     print(f"90th percentile: {np.percentile(scores, 90):.0f}")
 
     # Compare to random baseline
-    print(f"\nRandom baseline score: ~160")
-    improvement = (scores.mean() - 160) / 160 * 100
+    print(f"\nRandom baseline score: ~40")
+    improvement = (scores.mean() - 40) / 40 * 100
     print(f"Improvement over random: {improvement:.0f}%")
 
 

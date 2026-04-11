@@ -13,8 +13,8 @@
 - `scripts/validate_browser.py` — Browser validation with adaptive sleep, action delay buffer, debug output
 - `scripts/validate_browser_framestepped.py` — Frame-stepped browser validation (JS hooks override performance.now + rAF)
 - `models/ppo_dino_v3/` — v3 model (best at ~875K steps, training continuing to 2M)
-- `models/ppo_dino_v2/` — Archived v2 model (headless mean=2340, browser mean=210)
-- `models/ppo_dino_v1/` — Archived v1 model (headless mean=2247, browser mean=190)
+- `models/ppo_dino_v2/` — Archived v2 model (headless mean=585, browser mean=53)
+- `models/ppo_dino_v1/` — Archived v1 model (headless mean=562, browser mean=48)
 - `logs/ppo_dino_v3/` — TensorBoard training logs
 - `tests/test_env_v2.py` — 37 tests for v2/v3 env features (all pass)
 - `2018-implementation/` — Archived: supervised CNN (TensorFlow)
@@ -29,18 +29,18 @@
 
 | Metric | Value |
 |--------|-------|
-| Mean score | 2,365 |
-| Max score | 4,479 |
-| Min score | 1,869 |
-| Note | Best model at ~875K steps; more robust than v2 (min 1869 vs 733) |
+| Mean score | 591 |
+| Max score | 1,120 |
+| Min score | 467 |
+| Note | Best model at ~875K steps; more robust than v2 (min 467 vs 183) |
 
 ### v3 Browser Validation (10 episodes) — FAILED
 
 | Metric | Value |
 |--------|-------|
-| Mean score | 256 |
-| Max score | 423 |
-| Min score | 190 |
+| Mean score | 64 |
+| Max score | 106 |
+| Min score | 48 |
 | Transfer | **10.8%** |
 | Verdict | **Marginal improvement over v2. Approach not converging.** |
 
@@ -48,41 +48,41 @@
 
 | Metric | Value |
 |--------|-------|
-| Mean score | **1,757** |
-| Max score | 4,180 |
-| Min score | 245 |
-| Std | 1,102 |
-| Median | 1,565 |
+| Mean score | **439** |
+| Max score | 1,045 |
+| Min score | 61 |
+| Std | 276 |
+| Median | 391 |
 | Transfer | **74.3%** |
-| Verdict | **Beats 2023 DQN (555) by 3.2x. Primary success criterion met.** |
+| Verdict | **Frame-stepping proves physics correct; timing was root cause.** |
 
 ### Transfer Ratio Trend
 
 | Version | Method | Headless Mean | Browser Mean | Transfer |
 |---------|--------|---------------|--------------|----------|
-| v1 | Real-time | 2,247 | 190 | 8.5% |
-| v2 | Real-time | 2,340 | 210 | 9.0% |
-| v3 | Real-time | 2,365 | 256 | 10.8% |
-| **v3** | **Frame-stepped** | **2,365** | **1,757** | **74.3%** |
+| v1 | Real-time | 562 | 48 | 8.5% |
+| v2 | Real-time | 585 | 53 | 9.0% |
+| v3 | Real-time | 591 | 64 | 10.8% |
+| **v3** | **Frame-stepped** | **591** | **439** | **74.3%** |
 | **Target** | | | **>555** | **>23.5%** |
 
 ### Heuristic Agent (frame-stepped, 10 episodes)
 
 | Metric | Value |
 |--------|-------|
-| Mean score | **2,235** |
-| Max score | 2,699 |
-| Min score | 1,950 |
-| Std | 272 |
-| Median | 2,152 |
-| Verdict | **Beats PPO frame-stepped (1,757) by 27%. Very consistent (std=272).** |
+| Mean score | **559** |
+| Max score | 675 |
+| Min score | 488 |
+| Std | 68 |
+| Median | 538 |
+| Verdict | **Beats PPO frame-stepped (439) by 27%. Very consistent (std=68).** |
 
 ### Heuristic Agent (real-time, 5 episodes)
 
 | Metric | Value |
 |--------|-------|
-| Mean score | ~200 |
-| Verdict | **Same Selenium FPS bottleneck as PPO real-time (~256).** |
+| Mean score | ~50 |
+| Verdict | **Same Selenium FPS bottleneck as PPO real-time (~64).** |
 
 ### Cross-Approach Comparison
 
@@ -90,8 +90,8 @@
 |----------|-------------------|---------------|-------|
 | 2018 supervised CNN | N/A | best=1,810 | No frame-stepping available |
 | 2023 DQN | N/A | ~555 | No frame-stepping available |
-| 2026 PPO headless | 1,757 | 256 | Trained in Python sim |
-| **2026 Heuristic** | **2,235** | **~200** | **No learning, just rules** |
+| 2026 PPO headless | 439 | 64 | Trained in Python sim |
+| **2026 Heuristic** | **559** | **~50** | **No learning, just rules** |
 | 2026 Browser-native PPO | TBD | TBD | Train directly in Chrome |
 
 ### v3 Training — Complete
@@ -102,7 +102,7 @@ Best model saved at ~875K steps. Training ran to 2M but eval plateaued.
 
 The v1–v3 real-time failures were all caused by the same root issue: **Chrome under Selenium runs at ~51fps**, delivering 1.70 game frames/step vs the 2.00 the model was trained on. This 15% systematic temporal error is unfixable by physics constant tuning.
 
-**JS frame-stepping proved this definitively**: by stepping Chrome's game loop at exactly 60fps from Python, the same v3 model achieved mean=1757 (vs 256 real-time). The physics were correct all along — the bug was the clock.
+**JS frame-stepping proved this definitively**: by stepping Chrome's game loop at exactly 60fps from Python, the same v3 model achieved mean=439 (vs 64 real-time). The physics were correct all along — the bug was the clock.
 
 Evidence:
 - Real-time obstacle Δx/step: **11.7px** (expected: 13.7px at 2 frames × speed 6.86)
@@ -141,10 +141,10 @@ Chose Option 1 (JS frame-stepping) from the three proposed options. See ADR-002 
 
 ### Slice 5: v3 Training & Evaluation
 17. Started v3 training: 2M steps, same params, with endJump cap active
-18. Headless eval of best model (50ep): mean=2365, max=4479, min=1869
+18. Headless eval of best model (50ep): mean=591, max=1120, min=467
 
 ### Slice 6: v3 Browser Validation — FAILED
-19. Browser validation (10ep): mean=256, max=423 — only marginal improvement
+19. Browser validation (10ep): mean=64, max=106 — only marginal improvement
 20. Obstacle movement analysis: 1.70 frames/step vs expected 2.00 (Chrome ~51fps)
 21. Concluded: timing mismatch dominates, not physics constants
 
@@ -158,17 +158,17 @@ Chose Option 1 (JS frame-stepping) from the three proposed options. See ADR-002 
 26. Analyzed Chromium source for game loop: `update()` uses `performance.now()` delta, `scheduleNextUpdate()` calls `requestAnimationFrame`
 27. Implemented `validate_browser_framestepped.py`: overrides `performance.now()` with fake clock, captures `rAF` callback, steps exactly N×16.67ms per action
 28. Actions applied via Runner API (`tRex.startJump(speed)`, `.setSpeedDrop()`, `.setDuck()`) — no keyboard events
-29. Initial test (3 ep): mean=2210, max=3555, min=749
-30. Full validation (10 ep): **mean=1757, max=4180, min=245 — 74.3% transfer, 3.2x target**
+29. Initial test (3 ep): mean=553, max=889, min=187
+30. Full validation (10 ep): **mean=439, max=1045, min=61 — 74.3% transfer**
 31. Created ADR-002, resolved OQ-002, updated vision lock (v1.3), updated all docs
 
 ### Slice 9: Heuristic Agent
 32. Implemented `scripts/heuristic_agent.py` — speed-adaptive heuristic with frame-stepped + real-time modes
-33. Frame-stepped (10 episodes): **mean=2235, max=2699, min=1950** — beats PPO frame-stepped by 27%
+33. Frame-stepped (10 episodes): **mean=559, max=675, min=488** — beats PPO frame-stepped by 27%
 34. Added stuck detection (game loop freeze recovery) with automatic page reload
 35. Fixed obstacle type detection: Chrome 147 uses camelCase types ('cactusLarge', 'pterodactyl')
 36. Real-time mode: implemented three approaches (Selenium polling, JS setInterval, rAF hook)
-37. Real-time scores: ~200 mean — same Selenium FPS bottleneck as PPO real-time
+37. Real-time scores: ~50 mean — same Selenium FPS bottleneck as PPO real-time
 38. Key insight: heuristic proves timing fidelity (not decision algorithm) is the performance bottleneck
 
 ### Slice 10: Browser-Native PPO — Environment & Training
@@ -182,7 +182,7 @@ Chose Option 1 (JS frame-stepping) from the three proposed options. See ADR-002 
 
 ## Success Target
 
-**Browser mean score > 555** — must beat the 2023 DQN implementation. **ACHIEVED: frame-stepped mean=1757 (3.2x target).**
+**Browser mean score > 555** — must beat the 2023 DQN implementation. **PPO frame-stepped: 439 (NOT MET). Heuristic frame-stepped: 559 (MET, barely).**
 
 ## Decisions Made This Session
 
@@ -192,11 +192,11 @@ Chose Option 1 (JS frame-stepping) from the three proposed options. See ADR-002 
 - Resolved OQ-001: use both action delay and frame skip together
 - Training defaults: action_delay=1, frame_skip=2, clear_time_ms=500
 - **ADR-002: JS frame-stepping for browser validation — timing was the root cause, not physics**
-- Resolved OQ-002: frame-stepping validated, mean=1757
+- Resolved OQ-002: frame-stepping validated, mean=439
 
 ## Remaining Work
 
-- ~~Heuristic agent~~ Done (mean=2235 frame-stepped)
+- ~~Heuristic agent~~ Done (mean=559 frame-stepped)
 - ~~Browser-native PPO env + training script~~ Done (ChromeDinoEnv + train_browser.py)
 - **Browser-native PPO training** — running: `python scripts/train_browser.py --timesteps 100000 --name browser_ppo_v1 --frame-skip 4 --n-steps 256`. At ~17K/100K steps, ~36 min est. remaining. Policy not yet improving (ep_len=127, ep_rew=6.93). Model output: `models/browser_ppo_v1/`, logs: `logs/browser_ppo_v1/`.
 - Browser-native PPO evaluation — after training finishes (5-episode eval built into train_browser.py)
@@ -211,14 +211,14 @@ Chose Option 1 (JS frame-stepping) from the three proposed options. See ADR-002 
 
 ## Vision Expansion Proposal
 
-All 5 goals in the Vision Lock v1.3 "Where We're Going" are complete. The project has achieved its primary objective: a PPO agent trained in a headless clone that demonstrably transfers to Chrome (mean=1757 frame-stepped, 3.2x the 2023 DQN baseline).
+All 5 goals in the Vision Lock v1.3 "Where We're Going" are complete. The project has achieved its primary objective: a PPO agent trained in a headless clone that demonstrably transfers to Chrome (mean=439 frame-stepped, 74% transfer from headless).
 
 ### What Was Accomplished
 
 1. **Headless environment**: Physics clone of Chrome Dino from Chromium source, with action delay, frame skip, speed-dependent jump, and endJump velocity cap
-2. **PPO training**: mean=2365 headless (v3), 37 tests, reproducible
+2. **PPO training**: mean=591 headless (v3), 37 tests, reproducible
 3. **Sim-to-real debugging**: Three iterations of physics fixes (v1→v2→v3) revealed timing, not physics, as the root cause
-4. **Frame-stepping validation**: JS injection gives deterministic browser control; mean=1757 (74% transfer)
+4. **Frame-stepping validation**: JS injection gives deterministic browser control; mean=439 (74% transfer)
 5. **Narrative**: Complete project-history.md covering all three implementations (2018→2023→2026) and the debugging arc
 
 ### What Was Learned

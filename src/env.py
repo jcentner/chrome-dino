@@ -292,7 +292,7 @@ class DinoEnv(gym.Env):
         # --- Update counters ---
         self.frame_count += 1
         self.distance += self.speed
-        self.score = self.distance / 10.0  # Roughly matches Chrome's scoring
+        self.score = round(self.distance * 0.025)  # Chrome DistanceMeter.COEFFICIENT
 
         # Reward: proportional to speed (surviving at higher speed = more reward)
         reward = self.speed / MAX_SPEED

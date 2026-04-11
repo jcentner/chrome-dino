@@ -25,16 +25,16 @@ Multiple approaches to Chrome Dino, all under unified 2026 iteration, built auto
 
 | Criterion | Measure | Status |
 |-----------|---------|--------|
-| Headless PPO browser competence | Mean browser score > 555 (beats 2023 DQN) | **MET**: frame-stepped mean=1757 |
-| Heuristic agent | Functional heuristic with browser score measured | **MET**: frame-stepped mean=2235 |
+| Headless PPO browser competence | Mean browser score > 555 (beats 2023 DQN) | Frame-stepped mean=439 (74% transfer, not yet >555) |
+| Heuristic agent | Functional heuristic with browser score measured | **MET**: frame-stepped mean=559 |
 | Browser-native PPO | Train and evaluate in real Chrome | In progress |
 | Approach comparison | All approaches compared on same metric (browser score) | Heuristic vs PPO done |
 | Narrative completeness | project-history.md covers all approaches with strategic insights | In progress |
 
 ## Where We're Going
 
-1. ~~Headless PPO: train, debug sim-to-real, validate via frame-stepping~~ **Done: mean=1757**
-2. ~~Heuristic agent: implement and measure in browser~~ **Done: mean=2235**
+1. ~~Headless PPO: train, debug sim-to-real, validate via frame-stepping~~ **Done: mean=439 (74% transfer)**
+2. ~~Heuristic agent: implement and measure in browser~~ **Done: mean=559**
 3. Browser-native PPO: frame-stepped Chrome as Gymnasium env, train and evaluate
 4. Compare all approaches on browser score, document strategic insights
 5. Complete narrative with the "multiple approaches via autonomous dev" story
@@ -87,7 +87,7 @@ Multiple approaches to Chrome Dino, all under unified 2026 iteration, built auto
 | Version | Date | Change |
 |---------|------|--------|
 | 1.0 | 2026-04-10 | Initial vision: PPO agent for Chrome Dino with headless environment |
-| 1.1 | 2026-04-10 | All goals met: agent trained (mean=2247), browser validated (mean=190), project-history.md complete |
+| 1.1 | 2026-04-10 | All goals met: agent trained (mean=562), browser validated (mean=48), project-history.md complete |
 | 1.2 | 2026-04-10 | **Honest reassessment**: browser score 190 is terrible. Redefined success criteria around browser score. |
-| 1.3 | 2026-04-11 | **Browser competence achieved**: JS frame-stepping mean=1757. All v1 goals done. |
+| 1.3 | 2026-04-11 | **Browser validation**: JS frame-stepping mean=439 (74% transfer). Score calculation fixed (was 4x inflated). |
 | 2.0 | 2026-04-11 | **Scope expansion**: Multiple approaches (heuristic, browser-native PPO) under unified 2026 iteration. Narrative reframed around autonomous dev enabling rapid experimentation across approaches. v1.3 archived. |

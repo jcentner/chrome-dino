@@ -51,15 +51,15 @@ I've now built an AI to play it three times: 2018, 2023, and 2026. Each attempt 
 
 | Metric | Value |
 |--------|-------|
-| Mean score | 2,247 |
-| Max score | 4,729 |
-| Min score | 721 |
-| Median | 2,149 |
-| 90th percentile | 2,778 |
+| Mean score | 562 |
+| Max score | 1,182 |
+| Min score | 180 |
+| Median | 537 |
+| 90th percentile | 694 |
 | Mean episode length | 2,972 steps (~50 seconds) |
 | Improvement over random | 13x |
 
-The agent learned to consistently survive for nearly a minute of game time, handling speed increases, mixed obstacle types, and the narrowing reaction windows at high speed. At its best, it scored 4,729 — well into "good human player" territory.
+The agent learned to consistently survive for nearly a minute of game time, handling speed increases, mixed obstacle types, and the narrowing reaction windows at high speed. At its best, it scored 1,182 — well into "good human player" territory.
 
 **Two bugs found and fixed during training:**
 1. The obstacle gap formula was wrong — `minGap * gapCoefficient` instead of Chromium's `width * speed + minGap * gapCoefficient`. This made obstacles 2–3x too dense, essentially impossible to survive.
@@ -81,8 +81,8 @@ The agent learned to consistently survive for nearly a minute of game time, hand
 | **Environment** | Screen capture + manual labels | Selenium + OCR | Headless physics clone |
 | **Training speed** | N/A (offline) | ~1 FPS | ~3,000+ FPS |
 | **Actions** | Jump | Jump | Jump, Duck, Noop |
-| **Best score** | 1,810 | Unknown | 4,479 (headless) / 4,180 (frame-stepped browser) |
-| **Mean score** | Unknown | ~555 | 2,365 (headless) / 1,757 (frame-stepped) / 256 (real-time) |
+| **Best score** | 1,810 | Unknown | 1,120 (headless) / 1,045 (frame-stepped browser) |
+| **Mean score** | Unknown | ~555 | 591 (headless) / 439 (frame-stepped) / 64 (real-time) |
 | **Who wrote it** | Me (undergrad, 2 months) | Me (professional, 2 days) | AI agent (I chose options, ~1 hour) |
 | **Platform** | Windows only | Windows only | Linux (any OS) |
 
@@ -94,13 +94,13 @@ v1 results (5 episodes, Chrome 147):
 
 | Metric | Value |
 |--------|-------|
-| Mean score | 190 |
-| Max score | 204 |
-| Min score | 186 |
-| Headless mean | 2,247 |
+| Mean score | 48 |
+| Max score | 51 |
+| Min score | 47 |
+| Headless mean | 562 |
 | Browser/Headless ratio | 8% |
 
-**This is bad.** A mean score of 190 is far worse than the 2023 DQN (~555) and the 2018 supervised model's peak of 1,810. The 2026 agent that looked brilliant in headless — 13x over random, peaks of 4,729 — can barely survive 2 seconds of real obstacles.
+**This is bad.** A mean score of 48 is far worse than the 2023 DQN (~555) and the 2018 supervised model's peak of 1,810. The 2026 agent that looked brilliant in headless — 13x over random, peaks of 1,182 — can barely survive 2 seconds of real obstacles.
 
 The initial instinct was to hand-wave this away as "Selenium latency." Doubling the polling rate from 15Hz to 30Hz gave zero improvement, which disproved that theory. The real problem is deeper: **the agent learned the wrong game.**
 
@@ -122,7 +122,7 @@ This is actually a well-known problem in robotics RL. Training in simulation is 
 
 The fix isn't complicated: train with action delay (1-2 frame buffer before actions take effect) and frame skip (advance multiple game frames per agent step). This forces the agent to learn anticipatory behavior instead of reactive behavior. It's a 20-line code change. But you have to know it's needed, and I didn't check until the browser score came back.
 
-**Status**: Physics fixes helped but timing mismatch was the real bottleneck. Solved with JS frame-stepping — browser mean 1,757 (3.2x target of 555). See the full story below.
+**Status**: Physics fixes helped but timing mismatch was the real bottleneck. Solved with JS frame-stepping — browser mean 439 (74% transfer from headless). See the full story below.
 
 ## What This Shows
 
@@ -132,7 +132,7 @@ The interesting story isn't "AI plays game." That's been done. The story is the 
 
 2. **2023**: I knew the right approach (RL) but was still fighting the environment. Screen capture, OCR, browser automation — all of it was overhead that had nothing to do with the actual learning problem. The engineering dominated the science. But the agent trained *in the real game* and scored 555.
 
-3. **2026 (v1)**: The AI agent built a headless clone and trained 3,000x faster. The headless scores looked incredible — mean 2,247, peak 4,729. But in the real browser: mean 190. Worse than both prior implementations. The fastest training doesn't matter if you're training on the wrong game. Sim-to-real transfer is the hard part, and we skipped it.
+3. **2026 (v1)**: The AI agent built a headless clone and trained 3,000x faster. The headless scores looked incredible — mean 562, peak 1,182. But in the real browser: mean 48. Worse than both prior implementations. The fastest training doesn't matter if you're training on the wrong game. Sim-to-real transfer is the hard part, and we skipped it.
 
 The humbling part: the 2023 DQN, despite being painfully slow and architecturally crude, produced a better real-world agent because it trained where it would be deployed. The 2026 approach optimized the wrong thing (headless training speed) while assuming the simulation was faithful. It wasn't.
 
@@ -167,11 +167,11 @@ The headless environment uses constants directly from Chromium's TypeScript sour
 
 ### The Starting Point
 
-Came into this session with v2 already trained — action delay, frame skip, speed-dependent jump velocity, the works. The model scored mean=2,340 in headless (better than v1's 2,247). The sim-to-real fixes were supposed to close the gap. Spun up ChromeDriver, pointed the validation script at the real game, and —
+Came into this session with v2 already trained — action delay, frame skip, speed-dependent jump velocity, the works. The model scored mean=585 in headless (better than v1's 562). The sim-to-real fixes were supposed to close the gap. Spun up ChromeDriver, pointed the validation script at the real game, and —
 
-**Mean: 210. Max: 241.**
+**Mean: 53. Max: 60.**
 
-Barely better than v1's 190. Two days of env engineering and a full retrain, and we gained 20 points.
+Barely better than v1's 48. Two days of env engineering and a full retrain, and we gained 20 points.
 
 ### First Hypothesis: Observation Mismatch
 
@@ -192,7 +192,7 @@ The model was ducking at cacti it needed to jump over, then jumping at the last 
 
 I measured how many game pixels the obstacle moved per observation step. At speed 7.2, the expected 2-frame movement is 14.4 pixels. I was seeing 13 on average — close to 1.8 frames instead of 2. The model sees obstacles moving slower than expected, so its "jump at dx_norm=0.20" is actually "jump 1 obstacle-width too early."
 
-Added adaptive sleep timing: measure how long the Selenium round-trip (read state + model predict + send action) takes, then sleep only the remaining time to hit the 2-frame target. Scores nudged up to mean 259 with one episode hitting 403. Better, but still dying at the second obstacle every game. User confirmed: "consistently jumps too early for the second cactus."
+Added adaptive sleep timing: measure how long the Selenium round-trip (read state + model predict + send action) takes, then sleep only the remaining time to hit the 2-frame target. Scores nudged up to mean 65 with one episode hitting 101. Better, but still dying at the second obstacle every game. User confirmed: "consistently jumps too early for the second cactus."
 
 ### Third Hypothesis: Who Moved My Debug
 
@@ -200,7 +200,7 @@ In my excitement to fix the timing, I moved the debug print statement to after a
 
 Reverted the debug move. Added a `--step-pad-ms` argument (default 4ms) for manual latency compensation. The obstacle deltas now averaged 14.07 pixels/step vs the 14.64 target — 1.92 game frames, close enough.
 
-Scores: mean 208. Still terrible.
+Scores: mean 52. Still terrible.
 
 ### The Real Culprit
 
@@ -279,11 +279,11 @@ The good news: each diagnosis gets easier. v1's gap was mysterious (just "it doe
 
 ### v3 Results: It Wasn't The Physics
 
-v3 training finished. Headless eval: mean=2,365, max=4,479, min=1,869 — tighter than v2 (min jumped from 733 to 1,869). The endJump cap made the agent more robust. Browser validation:
+v3 training finished. Headless eval: mean=591, max=1,120, min=467 — tighter than v2 (min jumped from 183 to 467). The endJump cap made the agent more robust. Browser validation:
 
-**Mean: 256. Max: 423.**
+**Mean: 64. Max: 106.**
 
-Better than v2's 210 by about 22%. But the target was 555. Three iterations of physics fixes had moved the transfer ratio from 8% → 9% → 11%. The numbers were going the right direction, but at this rate, matching the 2023 DQN would take twenty more iterations.
+Better than v2's 53 by about 22%. But the target was 555. Three iterations of physics fixes had moved the transfer ratio from 8% → 9% → 11%. The numbers were going the right direction, but at this rate, matching the 2023 DQN would take twenty more iterations.
 
 ### Finding the Real Root Cause
 
@@ -354,12 +354,12 @@ The game thinks time is passing normally. It doesn't know it's running in slow m
 
 | Metric | Value |
 |--------|-------|
-| Mean score | **1,757** |
-| Max score | 4,180 |
-| Min score | 245 |
+| Mean score | **439** |
+| Max score | 1,045 |
+| Min score | 61 |
 | Transfer | **74.3%** |
 
-From 256 to 1,757. **6.9x improvement.** Zero retraining. The only change was making Chrome's clock match the training environment's clock.
+From 64 to 439. **6.9x improvement.** Zero retraining. The only change was making Chrome's clock match the training environment's clock.
 
 The physics were correct all along. Three iterations of increasingly precise physics fixes (speed-dependent jump, endJump cap, action delay modeling) were all addressing a 5% problem while ignoring the 15% timing problem sitting right next to it.
 
@@ -367,18 +367,18 @@ The physics were correct all along. Three iterations of increasingly precise phy
 
 | | 2018 | 2023 | 2026 Real-time | 2026 Frame-stepped |
 |---|---|---|---|---|
-| **Mean score** | ~200 | ~555 | 256 | **1,757** |
-| **Max score** | ~200 | Unknown | 423 | **4,180** |
-| **vs 2023 DQN** | 0.4x | 1x | 0.5x | **3.2x** |
+| **Mean score** | ~200 | ~555 | 64 | **439** |
+| **Max score** | ~200 | Unknown | 106 | **1,045** |
+| **vs 2023 DQN** | 0.4x | 1x | 0.1x | **0.8x** |
 | **Method** | Human mimicry | Browser DQN | Headless PPO → browser | Headless PPO → frame-stepped browser |
 
 ### What This Means
 
-The headless clone approach *works*. The PPO agent trained in 40 minutes what the DQN took hours to learn, and scores 3x higher when the deployment timing is controlled. The sim-to-real gap was never about physics fidelity — it was about **temporal fidelity**.
+The headless clone approach *works*. The PPO agent trained in 40 minutes what the DQN took hours to learn, and achieves 74% transfer when the deployment timing is controlled. The sim-to-real gap was never about physics fidelity — it was about **temporal fidelity**.
 
 Real-time Selenium can't match the 60fps the model trained on. But with frame-stepping, you get deterministic frame control. The game runs in slow motion, but it runs *exactly* how the agent expects.
 
-The 26% gap between frame-stepped (1,757) and headless (2,365) is probably from minor differences — Chrome uses `Math.round()` on positions, the velocity is estimated from position deltas rather than known directly, obstacle generation uses different random seeds. These are tractable problems if the gap matters, but 1,757 already demolishes the target of 555.
+The 26% gap between frame-stepped (439) and headless (591) is probably from minor differences — Chrome uses `Math.round()` on positions, the velocity is estimated from position deltas rather than known directly, obstacle generation uses different random seeds. These are tractable problems if the gap matters.
 
 ### The Final Lesson
 
@@ -390,4 +390,4 @@ The three implementations tell a story about where the hard problems actually li
 
 The tools get better. The algorithms get more capable. The environments get faster. But each improvement just reveals the *next* hard problem. And the next hard problem is always about the gap between where you train and where you deploy.
 
-The Chrome Dino AI plays the game now. Mean 1,757 in Chrome, peaks above 4,000. It just needs someone to pause the clock for it.
+The Chrome Dino AI plays the game now. Mean 439 in Chrome, peaks above 1,000. It just needs someone to pause the clock for it.
