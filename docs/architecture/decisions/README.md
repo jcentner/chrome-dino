@@ -7,6 +7,7 @@ Record significant architecture decisions here. Each ADR documents the context, 
 | ADR | Title | Status |
 |-----|-------|--------|
 | 001 | [Env v2 sim-to-real fixes](001-env-v2-sim-to-real-fixes.md) | Accepted |
+| 002 | [JS frame-stepping validation](002-js-frame-stepping-validation.md) | Accepted |
 
 ## ADR Template
 

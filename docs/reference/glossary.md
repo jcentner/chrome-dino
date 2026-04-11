@@ -17,3 +17,5 @@ Project-specific terms and their definitions.
 **Sim-to-real gap** — The difference between headless environment performance and real Chrome browser performance. v1 had a 12x gap (mean 2,247 headless vs 190 browser).
 
 **endJump cap** — Chrome's jump height limiter (`trex.ts:483-520`). When the dino rises above `maxJumpHeight` (63px above ground), upward velocity is capped to `dropVelocity` (5.0). Reduces peak from ~101 (ballistic) to ~87. Implemented in env as `MAX_JUMP_HEIGHT`/`MIN_JUMP_HEIGHT` constants with `reached_min_height` state tracking.
+
+**Frame-stepping** — JS injection technique that overrides Chrome's `performance.now()` and `requestAnimationFrame` to step the game deterministically from Python. Each step advances exactly N × 16.67ms, eliminating the timing mismatch that caused real-time validation to fail (~51fps vs trained 60fps). See ADR-002.

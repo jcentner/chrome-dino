@@ -25,14 +25,14 @@ Questions that need resolution before or during implementation. Use this to trac
 
 ### OQ-002: JS frame-stepping as alternative to latency training
 
-**Status**: Open
+**Status**: Resolved
 **Priority**: Medium
 **Context**: Instead of training with latency, we could step Chrome's game frame-by-frame via JS injection, giving frame-perfect control. This would make the browser environment match the headless one exactly.
-**Current thinking**: Implement this as a separate validation mode. If it works, it proves the policy transfers when timing matches. But doesn't solve the "real-time play" narrative for the blog.
+**Resolution**: Implemented and validated. JS frame-stepping overrides `performance.now()` and `requestAnimationFrame` to step Chrome's game loop deterministically. Results: browser mean=1757 (10 ep) vs 256 real-time, 74% transfer from headless (2365). Beats 2023 DQN (555) by 3.2x. See ADR-002.
 
 ### OQ-003: Domain randomization scope
 
-**Status**: Open
+**Status**: Deferred
 **Priority**: Low
 **Context**: Randomizing action delay (0-3 frames), speed jitter, and gap variance during training would produce a more robust policy. But it's more complex and takes longer to converge.
-**Current thinking**: Try the simple fixes first (fixed delay + frame skip). Only add randomization if the fixed approach doesn't transfer well enough.
+**Current thinking**: Frame-stepping (OQ-002) solved the transfer problem for deterministic validation. Domain randomization would only matter if real-time play (without frame-stepping) becomes a goal.

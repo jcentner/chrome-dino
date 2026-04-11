@@ -11,7 +11,7 @@ Three implementations spanning 2018–2026 — from supervised learning to auton
 - **Observations**: 20-dim feature vector (speed, T-Rex state, 3 nearest obstacles)
 - **Actions**: Jump, Duck, Noop
 - **Training**: 16 parallel environments, ~3k FPS on RTX 3070 Ti
-- **Browser validation**: Selenium + JS Runner API confirms transfer to real Chrome Dino
+- **Browser validation**: Frame-stepped JS injection confirms transfer to real Chrome Dino (mean=1757, 3.2× the 2023 DQN)
 
 ### Quick Start
 
@@ -39,7 +39,8 @@ python scripts/evaluate.py --model models/my_run/best/best_model.zip
 src/env.py                    # Headless Dino game environment (Gymnasium)
 scripts/train.py              # PPO training with parallel envs + checkpointing
 scripts/evaluate.py           # Model evaluation and statistics
-scripts/validate_browser.py   # Browser validation via Selenium + JS Runner API
+scripts/validate_browser.py   # Real-time browser validation (Selenium)
+scripts/validate_browser_framestepped.py  # Frame-stepped validation (deterministic)
 models/                       # Saved model checkpoints
 logs/                         # TensorBoard training logs
 project-history.md            # Narrative development history
