@@ -1,12 +1,13 @@
 # chrome-dino — Current State
 
-**Phase Status**: In Progress — Multi-approach exploration (heuristic → browser-native PPO)
+**Phase Status**: In Progress — Multi-approach exploration (heuristic done → browser-native PPO next)
 
 ## What Exists
 
 - `src/env.py` — Headless Dino game environment (Gymnasium), v3 with action_delay, frame_skip, speed-dependent jump, endJump velocity cap
 - `scripts/train.py` — PPO training pipeline with v2 env params via CLI
 - `scripts/evaluate.py` — Model evaluation with v2 env params via CLI
+- `scripts/heuristic_agent.py` — Heuristic (rule-based) browser agent: frame-stepped + real-time modes
 - `scripts/validate_browser.py` — Browser validation with adaptive sleep, action delay buffer, debug output
 - `scripts/validate_browser_framestepped.py` — Frame-stepped browser validation (JS hooks override performance.now + rAF)
 - `models/ppo_dino_v3/` — v3 model (best at ~875K steps, training continuing to 2M)
@@ -62,6 +63,34 @@
 | v3 | Real-time | 2,365 | 256 | 10.8% |
 | **v3** | **Frame-stepped** | **2,365** | **1,757** | **74.3%** |
 | **Target** | | | **>555** | **>23.5%** |
+
+### Heuristic Agent (frame-stepped, 10 episodes)
+
+| Metric | Value |
+|--------|-------|
+| Mean score | **2,235** |
+| Max score | 2,699 |
+| Min score | 1,950 |
+| Std | 272 |
+| Median | 2,152 |
+| Verdict | **Beats PPO frame-stepped (1,757) by 27%. Very consistent (std=272).** |
+
+### Heuristic Agent (real-time, 5 episodes)
+
+| Metric | Value |
+|--------|-------|
+| Mean score | ~200 |
+| Verdict | **Same Selenium FPS bottleneck as PPO real-time (~256).** |
+
+### Cross-Approach Comparison
+
+| Approach | Frame-stepped Mean | Real-time Mean | Notes |
+|----------|-------------------|---------------|-------|
+| 2018 supervised CNN | N/A | best=1,810 | No frame-stepping available |
+| 2023 DQN | N/A | ~555 | No frame-stepping available |
+| 2026 PPO headless | 1,757 | 256 | Trained in Python sim |
+| **2026 Heuristic** | **2,235** | **~200** | **No learning, just rules** |
+| 2026 Browser-native PPO | TBD | TBD | Train directly in Chrome |
 
 ### v3 Training — Complete
 
@@ -131,6 +160,15 @@ Chose Option 1 (JS frame-stepping) from the three proposed options. See ADR-002 
 30. Full validation (10 ep): **mean=1757, max=4180, min=245 — 74.3% transfer, 3.2x target**
 31. Created ADR-002, resolved OQ-002, updated vision lock (v1.3), updated all docs
 
+### Slice 9: Heuristic Agent
+32. Implemented `scripts/heuristic_agent.py` — speed-adaptive heuristic with frame-stepped + real-time modes
+33. Frame-stepped (10 episodes): **mean=2235, max=2699, min=1950** — beats PPO frame-stepped by 27%
+34. Added stuck detection (game loop freeze recovery) with automatic page reload
+35. Fixed obstacle type detection: Chrome 147 uses camelCase types ('cactusLarge', 'pterodactyl')
+36. Real-time mode: implemented three approaches (Selenium polling, JS setInterval, rAF hook)
+37. Real-time scores: ~200 mean — same Selenium FPS bottleneck as PPO real-time
+38. Key insight: heuristic proves timing fidelity (not decision algorithm) is the performance bottleneck
+
 ## Success Target
 
 **Browser mean score > 555** — must beat the 2023 DQN implementation. **ACHIEVED: frame-stepped mean=1757 (3.2x target).**
@@ -147,9 +185,10 @@ Chose Option 1 (JS frame-stepping) from the three proposed options. See ADR-002 
 
 ## Remaining Work
 
-- ~~Complete project-history.md with full iteration story~~ Done
+- ~~Heuristic agent~~ Done (mean=2235 frame-stepped)
+- Browser-native PPO — train PPO directly in Chrome via frame-stepping
+- Cross-approach narrative in project-history.md
 - Consider domain randomization (OQ-003) if real-time play becomes a goal
-- The 26% transfer gap (1757 vs 2365) may be reducible via Math.round matching or velocity estimation improvements
 
 ## Blocked / Unresolved
 
@@ -201,16 +240,8 @@ Options are not mutually exclusive. My recommendation in order of value:
 
 ## Files Modified This Session
 
-- `src/env.py` — endJump velocity cap (MIN_JUMP_HEIGHT, MAX_JUMP_HEIGHT, reached_min_height), Math.round comment, parenthesized condition
-- `scripts/validate_browser.py` — action delay buffer, adaptive sleep, step-pad-ms, debug output, action-delay default fix
-- `scripts/validate_browser_framestepped.py` — NEW: frame-stepped browser validation with JS hooks
-- `tests/test_env_v2.py` — 7 new endJump cap tests (37 total), pytest.approx fix, speed_drop interaction test
-- `docs/architecture/decisions/001-env-v2-sim-to-real-fixes.md` — endJump cap section
-- `docs/architecture/decisions/002-js-frame-stepping-validation.md` — NEW: frame-stepping ADR
-- `docs/architecture/overview.md` — v3 endJump cap note, frame-stepped script entry
-- `docs/reference/glossary.md` — endJump cap, frame-stepping definitions
-- `docs/reference/open-questions.md` — OQ-002 resolved
-- `docs/vision/VISION-LOCK.md` — v1.3: all success criteria met, all goals done
-- `roadmap/CURRENT-STATE.md` — updated with frame-stepping results, vision expansion proposal
-- `project-history.md` — Complete narrative through frame-stepping breakthrough
-- `project-history.md` — Journal narrative of debugging session
+- `scripts/heuristic_agent.py` — NEW: Heuristic browser agent (frame-stepped + real-time)
+- `README.md` — Added heuristic results to comparison table
+- `roadmap/CURRENT-STATE.md` — Updated with heuristic results, cross-approach comparison
+- `docs/vision/VISION-LOCK.md` — v2.0: multi-approach scope
+- `docs/vision/archive/VISION-LOCK.v1.md` — Archived v1.3

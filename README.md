@@ -11,14 +11,21 @@ Three approaches under a unified iteration, each built autonomously:
 | Approach | Description | Browser Mean | Browser Max |
 |----------|-------------|-------------|-------------|
 | **Headless PPO** | Physics clone + PPO, frame-stepped validation | 1,757 | 4,180 |
-| **Heuristic** | Speed-adaptive reactive rules, no ML | TBD | TBD |
+| **Heuristic** | Speed-adaptive reactive rules, no ML | 2,235 | 2,699 |
 | **Browser-native PPO** | PPO trained directly in Chrome via frame-stepping | TBD | TBD |
+
+*Scores are frame-stepped (deterministic 60fps). Real-time Selenium scores are ~200 for all approaches due to browser FPS limitations.*
 
 ### Headless PPO
 - **Algorithm**: PPO via Stable-Baselines3, MlpPolicy [256,256]
 - **Environment**: Headless Python recreation of Chrome Dino physics
 - **Training**: 16 parallel envs, ~3k FPS, converges in ~40 min
 - **Browser validation**: JS frame-stepping gives deterministic 60fps control
+
+### Heuristic
+- **Zero learning**: Speed-adaptive trigger distances, pterodactyl height detection
+- **Frame-stepped mean: 2,235** — beats PPO frame-stepped (1,757) by 27%
+- **Insight**: Rule-based approach outperforms ML at pure decision quality; the obstacle patterns in Chrome Dino are regular enough that simple rules suffice
 
 ### Quick Start
 
