@@ -26,15 +26,15 @@ Multiple approaches to Chrome Dino, all under unified 2026 iteration, built auto
 | Criterion | Measure | Status |
 |-----------|---------|--------|
 | Headless PPO browser competence | Mean browser score > 555 (beats 2023 DQN) | **MET**: frame-stepped mean=1757 |
-| Heuristic agent | Functional heuristic with browser score measured | Not started |
-| Browser-native PPO | Train and evaluate in real Chrome | Not started |
-| Approach comparison | All approaches compared on same metric (browser score) | Not started |
+| Heuristic agent | Functional heuristic with browser score measured | **MET**: frame-stepped mean=2235 |
+| Browser-native PPO | Train and evaluate in real Chrome | In progress |
+| Approach comparison | All approaches compared on same metric (browser score) | Heuristic vs PPO done |
 | Narrative completeness | project-history.md covers all approaches with strategic insights | In progress |
 
 ## Where We're Going
 
 1. ~~Headless PPO: train, debug sim-to-real, validate via frame-stepping~~ **Done: mean=1757**
-2. Heuristic agent: implement and measure in browser
+2. ~~Heuristic agent: implement and measure in browser~~ **Done: mean=2235**
 3. Browser-native PPO: frame-stepped Chrome as Gymnasium env, train and evaluate
 4. Compare all approaches on browser score, document strategic insights
 5. Complete narrative with the "multiple approaches via autonomous dev" story

@@ -147,6 +147,7 @@ class ChromeDinoEnv(gym.Env):
         self._step_count = 0
         self._prev_distance = 0.0
         self._stuck_count = 0
+        self._needs_full_reload = True  # first reset always reloads
 
     def _connect(self):
         """Lazy-connect to Chrome."""
@@ -181,25 +182,30 @@ class ChromeDinoEnv(gym.Env):
         super().reset(seed=seed)
         self._connect()
 
-        # Full page reload for clean state
-        try:
-            self._driver.get("chrome://dino")
-        except Exception:
-            pass
-        time.sleep(1.5)
+        if self._needs_full_reload:
+            # Full page reload for clean state (first time or after stuck episode)
+            try:
+                self._driver.get("chrome://dino")
+            except Exception:
+                pass
+            time.sleep(1.5)
+            self._needs_full_reload = False
+        else:
+            # Fast restart: just reinstall hooks and restart game
+            time.sleep(0.1)
 
         # Install hooks
         self._driver.execute_script(INSTALL_HOOKS_JS)
 
-        # Start game
+        # Start/restart game
         body = self._driver.find_element("tag name", "body")
         body.send_keys(Keys.SPACE)
-        time.sleep(0.3)
+        time.sleep(0.2)
         self._driver.execute_script(
             "var r=Runner.getInstance(); "
             "if(r.crashed) r.restart(); "
             "else if(!r.playing) r.playIntro();")
-        time.sleep(0.3)
+        time.sleep(0.2)
 
         # Warm up: let intro animation complete + T-Rex settle on ground
         for _ in range(30):
@@ -242,6 +248,7 @@ class ChromeDinoEnv(gym.Env):
             self._stuck_count += 1
             if self._stuck_count >= 200:
                 truncated = True
+                self._needs_full_reload = True  # rAF loop may be dead
         else:
             self._stuck_count = 0
             self._prev_distance = state["distance"]

@@ -2,30 +2,39 @@
 
 ## Overview
 
-PPO agent that plays Chrome Dino via a headless Python environment. Two components: the game simulation and the RL training pipeline.
+Multiple approaches to playing Chrome Dino, all built autonomously: headless PPO, heuristic agent, and browser-native PPO. The architecture enables rapid experimentation with different strategies.
 
 ## High-Level Architecture
 
 ```
 ┌─────────────┐     ┌──────────────────┐     ┌──────────────┐
 │ DinoEnv     │────▶│ PPO (SB3)        │────▶│ Trained Model│
-│ (Gymnasium) │◀────│ 16 parallel envs │     │ (.zip)       │
+│ (headless)  │◀────│ 16 parallel envs │     │ (.zip)       │
+└─────────────┘     └──────────────────┘     └──────┬───────┘
+                                                     │ validate
+┌─────────────┐     ┌──────────────────┐     ┌──────▼───────┐
+│ChromeDinoEnv│────▶│ PPO (SB3)        │     │ Chrome       │
+│(frame-step) │◀────│ single env       │     │ (Selenium)   │
 └─────────────┘     └──────────────────┘     └──────────────┘
-     │                     │
-     │ obs (20-dim)        │ TensorBoard
-     │ reward, done        │ logs
-     │ action (0/1/2)      │
+                                                     ▲
+┌─────────────┐                                      │
+│ Heuristic   │──────────────────────────────────────┘
+│ (rules)     │  frame-stepped or real-time
+└─────────────┘
 ```
 
 ## Key Components
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| `DinoEnv` | `src/env.py` | Gymnasium environment: Chrome Dino physics, collision detection, obstacle spawning. v2 adds `action_delay`, `frame_skip`, `clear_time_ms`, speed-dependent jump. v3 adds endJump velocity cap matching Chromium `trex.ts:483-520`. |
-| Training script | `scripts/train.py` | PPO setup, parallel envs (SubprocVecEnv), checkpointing, eval callbacks |
-| Evaluation script | `scripts/evaluate.py` | Load model, run episodes, report statistics |
-| Browser validation | `scripts/validate_browser.py` | Real-time validation against Chrome Dino via Selenium + JS Runner API |
-| Frame-stepped validation | `scripts/validate_browser_framestepped.py` | Deterministic frame-by-frame validation via JS hooks (overrides `performance.now()` + `requestAnimationFrame`). See ADR-002. |
+| `DinoEnv` | `src/env.py` | Headless Gymnasium environment: Chrome Dino physics clone. v3 with action_delay, frame_skip, speed-dependent jump, endJump velocity cap. |
+| `ChromeDinoEnv` | `src/chrome_env.py` | Gymnasium wrapper around Chrome's actual game via JS frame-stepping. ~400 steps/sec. |
+| Training (headless) | `scripts/train.py` | PPO with SubprocVecEnv parallelism. ~3K FPS, converges in ~40 min. |
+| Training (browser) | `scripts/train_browser.py` | PPO in Chrome via ChromeDinoEnv. ~36 FPS, single env. |
+| Heuristic agent | `scripts/heuristic_agent.py` | Speed-adaptive rules, no ML. Frame-stepped + real-time modes. |
+| Evaluation | `scripts/evaluate.py` | Load model, run episodes, report statistics. |
+| Browser validation | `scripts/validate_browser.py` | Real-time validation against Chrome via Selenium. |
+| Frame-stepped validation | `scripts/validate_browser_framestepped.py` | Deterministic validation via JS hooks (overrides `performance.now()` + `requestAnimationFrame`). |
 
 ## Data Flow
 
