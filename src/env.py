@@ -49,6 +49,8 @@ DROP_VELOCITY = 5.0
 # Converted to bottom-up coords (y=0 is ground, positive=up):
 MIN_JUMP_HEIGHT = 30   # trex_y above which reachedMinHeight = True
 MAX_JUMP_HEIGHT = 63   # trex_y above which endJump caps velocity
+# Note: Chrome uses Math.round() on position updates, giving ~87 peak
+# vs our float arithmetic ~83 at speed 7.6. The ~4px gap is acceptable.
 # endJump cap: limits upward velocity to DROP_VELOCITY (5.0) once
 # past MAX_JUMP_HEIGHT, preventing the dino from going as high
 # as raw ballistic trajectory would allow.
@@ -254,8 +256,8 @@ class DinoEnv(gym.Env):
 
             # maxJumpHeight / endJump cap (Chromium trex.ts:516-520, 483-486)
             # When above MAX_JUMP_HEIGHT, cap upward velocity to DROP_VELOCITY
-            if (self.trex_y >= MAX_JUMP_HEIGHT or self.speed_drop) and \
-               self.reached_min_height and self.trex_vy > DROP_VELOCITY:
+            if ((self.trex_y >= MAX_JUMP_HEIGHT or self.speed_drop)
+                    and self.reached_min_height and self.trex_vy > DROP_VELOCITY):
                 self.trex_vy = DROP_VELOCITY
 
             if self.trex_y <= 0:

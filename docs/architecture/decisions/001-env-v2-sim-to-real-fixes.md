@@ -36,6 +36,23 @@ Observation velocity normalization updated to account for higher max velocity:
 
 Training defaults: `action_delay=1, frame_skip=2, clear_time_ms=500`.
 
+### endJump velocity cap (v3 addition)
+
+Chrome applies a jump height limiter (`trex.ts:483-520`): once the dino rises above
+`maxJumpHeight` (30 canvas px from top = 63px above ground in bottom-up coords),
+`endJump()` caps upward velocity to `dropVelocity` (5.0). This prevents the dino
+from reaching the full ballistic peak (~101px at speed 7), limiting it to ~87px.
+
+Our env now implements this with two constants:
+- **`MIN_JUMP_HEIGHT = 30`** — trex_y above which `reached_min_height` becomes True
+- **`MAX_JUMP_HEIGHT = 63`** — trex_y above which upward velocity is capped to `DROP_VELOCITY`
+
+Note: Chrome uses `Math.round()` on position updates; our float arithmetic gives
+peak ~83 vs Chrome's ~87. The ~4px discrepancy is acceptable.
+
+This was the root cause of v2's continued browser failure (mean=210): the model trained
+with peak height 101 but Chrome only allows 87, so the dino hit cacti on descent.
+
 ## Consequences
 
 - v1 defaults (`action_delay=0, frame_skip=1`) preserve backward compatibility

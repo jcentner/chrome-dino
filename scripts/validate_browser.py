@@ -145,8 +145,8 @@ def main():
     parser.add_argument("--episodes", type=int, default=5, help="Number of games to play")
     parser.add_argument("--slow", action="store_true", help="Add delay between actions for visibility")
     parser.add_argument("--debug", action="store_true", help="Print diagnostic observation data")
-    parser.add_argument("--action-delay", type=int, default=1,
-                        help="Action delay buffer size (must match training, default: 1)")
+    parser.add_argument("--action-delay", type=int, default=0,
+                        help="Action delay buffer size (default: 0; Selenium already adds ~1 frame latency)")
     parser.add_argument("--frame-skip", type=int, default=2,
                         help="Frames between policy steps (must match training, default: 2)")
     parser.add_argument("--step-pad-ms", type=float, default=4.0,

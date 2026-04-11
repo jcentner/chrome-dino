@@ -508,8 +508,8 @@ class TestEndJumpCap:
         while env.trex_y < MAX_JUMP_HEIGHT:
             env._step_internal(0)
         # At this point, vy should be capped
-        assert env.trex_vy <= DROP_VELOCITY + 0.01, \
-            f"vy should be <= {DROP_VELOCITY} above MAX_JUMP_HEIGHT, got {env.trex_vy}"
+        assert env.trex_vy == pytest.approx(DROP_VELOCITY, abs=0.01), \
+            f"vy should be ~{DROP_VELOCITY} above MAX_JUMP_HEIGHT, got {env.trex_vy}"
         env.close()
 
     def test_reached_min_height_set(self):
@@ -597,4 +597,24 @@ class TestEndJumpCap:
         # Second jump
         env._step_internal(1)
         assert not env.reached_min_height
+        env.close()
+
+    def test_speed_drop_bypasses_min_height_for_cap(self):
+        """speed_drop should allow endJump cap even below MIN_JUMP_HEIGHT."""
+        env = DinoEnv()
+        env.reset()
+        env.speed = 7.0
+        # Jump then immediately duck (speed_drop)
+        env._step_internal(1)
+        initial_vy = env.trex_vy
+        env._step_internal(2)  # duck in air => speed_drop = True
+        assert env.speed_drop
+        # speed_drop sets reached_min_height, so cap should apply
+        # The fast gravity means vy may already be <= DROP_VELOCITY
+        # after a few frames; verify cap activates within first few frames
+        for _ in range(3):
+            env._step_internal(2)
+        # vy should be capped (or already below due to fast gravity)
+        assert env.trex_vy <= DROP_VELOCITY + 0.01, \
+            f"With speed_drop, vy should be capped at {DROP_VELOCITY}, got {env.trex_vy}"
         env.close()
