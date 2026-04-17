@@ -1,49 +1,103 @@
 # chrome-dino — Copilot Instructions
 
-You are working on **chrome-dino**, a project exploring multiple approaches to playing Chrome's offline dinosaur game autonomously.
+You are working on **chrome-dino**, Autonomous approaches to Chrome Dino.
 
-## Project Context
+## Project context
 
-- **Implementation language**: Python 3.12
-- **Key dependencies**: PyTorch, Stable-Baselines3, Gymnasium, NumPy, Selenium
-- **Hardware target**: i7-12700K, 32GB RAM, RTX 3070 Ti (CUDA 13.0)
-- **Description**: Multiple 2026 approaches (headless PPO, heuristic, browser-native PPO) to Chrome Dino, all built autonomously. Fourth iteration of this project (2018 supervised, 2023 DQN+browser, 2026 multi-approach).
+- **Implementation language**: Python
+- **Description**: Autonomous approaches to Chrome Dino
 
-## Architecture
-
-- `src/env.py` — `DinoEnv`: Gymnasium environment implementing Chrome Dino physics from Chromium source constants. 20-dim observation vector, 3 discrete actions (noop/jump/duck), AABB collision.
-- `scripts/train.py` — PPO training with SubprocVecEnv parallelism, eval callbacks, checkpointing.
-- `scripts/evaluate.py` — Model evaluation with score statistics.
-- `scripts/heuristic_agent.py` — Heuristic (rule-based) agent for browser play.
-- `scripts/validate_browser.py` — Real-time browser validation via Selenium.
-- `scripts/validate_browser_framestepped.py` — Deterministic frame-stepped browser validation.
-- `2018-implementation/` — Archived: supervised CNN (TensorFlow).
-- `2023-implementation/` — Archived: DQN + Selenium + OCR.
-
-## Key Architecture Decisions
-
-Before making design choices, check existing [ADRs](docs/architecture/decisions/). Record new significant decisions as ADRs.
+<!-- TODO: Add project-specific context after generation -->
+<!-- Examples: target environment, key dependencies, primary LLM (if applicable) -->
 
 ## Documentation
 
 - Vision lock: [docs/vision/VISION-LOCK.md](docs/vision/VISION-LOCK.md) — versioned in place; scope changes require human approval
 - Architecture: [docs/architecture/overview.md](docs/architecture/overview.md)
+- ADRs: [docs/architecture/decisions/](docs/architecture/decisions/)
 - Open questions: [docs/reference/open-questions.md](docs/reference/open-questions.md)
 - Tech debt: [docs/reference/tech-debt.md](docs/reference/tech-debt.md)
 - Glossary: [docs/reference/glossary.md](docs/reference/glossary.md)
 - Stack skills: [.github/skills/](.github/skills/) — technology-specific docs grounding
+- Workflow catalog: [.github/catalog/MANIFEST.md](.github/catalog/MANIFEST.md) — dormant capabilities activated on demand
 
-## Coding Conventions
+## Workflow state is machine-readable
 
-- Check [open questions](docs/reference/open-questions.md) before making decisions that aren't covered by ADRs. If a question is relevant, resolve it and record the decision.
-- New significant design choices should be recorded as ADRs in `docs/architecture/decisions/`.
+`roadmap/state.md` is parsed by hooks. Use the exact field vocabulary — do not paraphrase. Narrative belongs in `roadmap/CURRENT-STATE.md`; per-tool activity is auto-logged to `roadmap/sessions/<session>.md`.
+
+- `Stage` ∈ `bootstrap`, `planning`, `design-critique`, `implementation-planning`, `implementation-critique`, `executing`, `reviewing`, `cleanup`, `blocked`, `complete`.
+- `Design Status` / `Implementation Status` terminal values: `approved`, `revise`, `rethink`, `waived`.
+- `Review Verdict` terminal values: `pass`, `needs-fixes`, `needs-rework`, `n/a`.
+- `Strategic Review` terminal values: `pass`, `replan`, `n/a`.
+
+Writing a non-terminal value into a terminal field (e.g., `Review Verdict: pending`) will be caught by the SubagentStop hook.
+
+## Three enforcement tiers — know what's actually enforced
+
+**Don't describe a rule as enforced if hooks can't check it.**
+
+### Tier 1 — Hook-enforced
+
+- `stage-gate.py` (PreToolUse) blocks direct `edit` / `create_file` / `multi_replace_string_in_file` tool calls to paths outside the allowlist for non-executing stages. Every entry in a `multi_replace_string_in_file` `replacements` array is checked — the first-allowed/rest-smuggled bypass is closed. Terminal-based source edits (e.g., `echo ... > src/x.py` via `run_in_terminal`) can bypass this per-call. Fails closed on unknown `Stage` values.
+- `session-gate.py` (Stop) is the **backstop** for the terminal bypass: it runs `git diff --name-only HEAD` at session end and blocks `Stop` if source files changed during a non-executing stage. Terminal source edits are detected at session end, not per command. **Caveat**: if the session terminates abnormally (crash, window close, OS kill), `Stop` never fires and terminal-introduced source edits leak. Treat the per-call gate as best-effort and the diff backstop as eventually-consistent. Also fails closed on unknown `Stage`.
+- `tool-guardrails.py` (PreToolUse) blocks known-destructive commands (`git push --force`, `rm -rf` on critical paths, `git reset --hard`, `curl | sh` pipes, writes to `node_modules/`/`.env`) **and** denies any write to the enforcement layer itself: `.github/hooks/scripts/`, `.github/agents/`, `.github/instructions/`, and `.github/copilot-instructions.md` are protected during every stage. Updates to those come from humans via `copier update` or an explicit unblock, never from the autonomous loop. Denylist on the destructive side — novel patterns can slip through.
+- `tester-isolation.py` (PreToolUse, tester-scoped) denies `semantic_search`/`codebase` entirely and path-gates reads/searches to test and config file patterns read from `roadmap/state.md`.
+- `subagent-verdict-check.py` (SubagentStop, critic/product-owner/reviewer) verifies that the subagent wrote a terminal value into the appropriate `state.md` field **and** that the expected artifact file exists on disk (critic round file, reviewer slice review file, product-owner design-plan user-stories section). It cannot verify *quality* — only presence.
+- `session-gate.py` (Stop) blocks session end mid-stage. When `Stage: blocked`, it requires `Blocked Kind` to be one of `awaiting-design-approval | awaiting-vision-update | awaiting-human-decision | error | vision-exhausted`. The next session uses `/resume` to route by `Blocked Kind`.
+- `evidence-tracker.py` (PostToolUse) is a pure logger: it appends tool-call summaries to the per-session log under `roadmap/sessions/` and never mutates `state.md`. Agents write `Tests Pass` themselves via `.github/hooks/scripts/write-test-evidence.py`.
+- `context-pressure.py` (PostToolUse) emits an advisory when context usage is high. Per-session state files are pruned after 7 days.
+
+### Tier 2 — Artifact-verified, quality not checked
+
+Hooks confirm artifacts exist (design plan has a User Stories section, review files exist, counts are numeric). They do **not** check that the critique was deep, the tests were meaningful, or the strategic review was thorough. That is the agent's job.
+
+### Tier 3 — Advisory only
+
+Code style, commit message format, choice of subagent vs. inline work, error-recovery strategy. The copilot-instructions describe best practices here; nothing blocks deviations.
+
+## Execution modes
+
+- **Autopilot**: the builder self-approves plan advancement and logs rationale to the per-session log. The single hard human gate is **design plan approval** — always forces a session break via `Stage: blocked` with `Blocked Kind: awaiting-design-approval`. Under autopilot, do not ask clarifying questions; make evidence-based decisions and append rationale to `## Context` in `CURRENT-STATE.md`. Tool-guardrails and stage-gate hooks remain hard constraints.
+- **Manual**: the builder uses `vscode_askQuestions` at checkpoints (design approval, implementation plan approval, phase review). Hooks still apply.
+
+The only bootstrap-time override: greenfield bootstrap must interview the human. That is the sole stage where "don't ask clarifying questions" is waived.
+
+## Coding conventions
+
+- Check [open questions](docs/reference/open-questions.md) before making decisions not covered by ADRs. If a question is relevant, resolve it and record the decision.
+- Record significant design choices as ADRs in `docs/architecture/decisions/`.
 - Use the [tech debt tracker](docs/reference/tech-debt.md) for known compromises.
 - When introducing new terms, add them to the [glossary](docs/reference/glossary.md).
 - Prefer simple, well-tested code over clever abstractions.
 - Every design choice should have a reason.
+- When adopting a new technology, create a stack skill in `.github/skills/` before writing non-trivial implementation code using it.
 
-## Quality Standards
+## Quality standards
 
-- Test coverage should include both happy paths and edge cases.
-- All external actions should require explicit human approval.
+- Test coverage includes both happy paths and edge cases.
+- Input validation at all system boundaries.
+- No hardcoded secrets, tokens, or credentials.
+- Parameterize queries; escape shell and template output.
+- Commit format: `type(scope): description` (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`).
 <!-- TODO: Add project-specific quality standards -->
+
+## Authority hierarchy
+
+1. `docs/vision/VISION-LOCK.md`
+2. ADRs in `docs/architecture/decisions/`
+3. Architecture docs
+4. Roadmap + phase plans
+5. Open questions, tech debt
+6. Instructions and prompts
+
+Higher beats lower. Raise conflicts — never silently work around them.
+
+## Self-modification
+
+The builder does **not** edit its own instructions (`.github/copilot-instructions.md`), cross-agent rules (`AGENTS.md`), agent definitions (`.github/agents/**`), hook scripts (`.github/hooks/scripts/**`), or scoped instructions (`.github/instructions/**`) — at any time, including between phases. `tool-guardrails.py` enforces this: direct writes to those paths are denied in every stage except `bootstrap` (where catalog activation copies agent files into place). Prompt files under `.github/prompts/` are editable — the builder may legitimately add project-specific prompts — but the enforcement-layer paths listed above are append-only via human action.
+
+If a workflow improvement becomes obvious, append it to `## Proposed Workflow Improvements` in `CURRENT-STATE.md` and `docs/reference/agent-improvement-log.md`. Humans apply enforcement-layer improvements via `copier update` or explicit unblock.
+
+## Browser tools (optional)
+
+Some catalog agents (`designer`, `design-review` prompt) and the `product-owner` agent reference `browser` tools for visual verification. These require the VS Code setting `workbench.browser.enableChatTools` and a running dev server. Without them, the agents fall back to code-only inspection — no failure, just reduced fidelity.

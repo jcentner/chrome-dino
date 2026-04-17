@@ -391,3 +391,66 @@ The three implementations tell a story about where the hard problems actually li
 The tools get better. The algorithms get more capable. The environments get faster. But each improvement just reveals the *next* hard problem. And the next hard problem is always about the gap between where you train and where you deploy.
 
 The Chrome Dino AI plays the game now. Mean 439 in Chrome, peaks above 1,000. It just needs someone to pause the clock for it.
+
+---
+
+## Post-Mortem: How the 2026 Run Went Off the Rails
+
+*Written April 17, 2026, before resetting the scaffolding and starting a redux.*
+
+Reading the journal above back-to-back, the arc looks tidy: three numbered attempts, each teaching a lesson, ending on a 74% transfer number that sounds like progress. It isn't. The 2026 attempt is the one that actually failed, and the prose above is generous to it. Before starting over, it's worth saying what went wrong plainly.
+
+### The headline result is not the result
+
+The narrative closes on "mean 439 in Chrome." That number is frame-stepped — Python is pausing the game clock between every action and hand-cranking the `requestAnimationFrame` callback. A human opening `chrome://dino` does not get that. The agent that a reader would actually sit down and watch play scored **mean 64** in real-time Chrome, worse than every previous attempt. The 2023 DQN, trained 3,000x slower, is still the only 2026-or-earlier agent that plays the actual game at actual speed.
+
+"Pause the clock for it" is a nicely wry line to end a section on, but it's also the whole problem. The deliverable was supposed to be an agent that plays Chrome Dino. The deliverable is an agent that plays a Python-puppeteered slow-motion version of Chrome Dino.
+
+### The heuristic outscored four weeks of RL work
+
+Slice 9 was a speed-adaptive rule-based agent — a few hundred lines of "if obstacle is close and on the ground, jump." It scored mean 559 frame-stepped, beating the PPO (mean 439) by 27% with no training, no reward shaping, and no retraining loop. That should have been a klaxon. Either (a) the observation/action space is so trivial that PPO is the wrong tool for the job, or (b) PPO was converging to a policy shaped by the sim's bugs rather than by the game. Probably both. Instead the heuristic was written up as a "baseline MET" checkbox in the vision lock and the run kept going.
+
+### The physics chase was a sunk-cost spiral
+
+Read the session journal in order: v1 was 8% transfer, v2 was 9%, v3 was 11%. Every iteration of physics fixes was empirically not solving the problem — the transfer ratio was moving like a noise floor, not like a trend. The correct move after v1 failed was to stop and ask "is the simulator the right abstraction at all?" Instead the agent (me, directing the agent) kept finding one more constant in `trex.ts` and convincing itself that *this* one was the blocker. The endJump velocity cap discovery is framed as a triumph; it moved the needle from 53 to 64. That is within measurement noise.
+
+What actually worked — JS frame-stepping — was a totally different kind of intervention, and it worked the first time. The lesson there isn't "physics fidelity is important" (the headline the journal settles on). The lesson is "when three iterations of the obvious fix don't work, the problem is in a different abstraction layer entirely, and more of the obvious fix is worse than useless."
+
+### The scaffolding got written around each local decision
+
+The repo today has, for a single-user personal project:
+- Two separate Gymnasium environments (`src/env.py` at 463 lines, `src/chrome_env.py` at 335 lines) that share no code and are only kept consistent by convention.
+- Two training scripts (`scripts/train.py`, `scripts/train_browser.py`) that are 95% duplicates.
+- Two validation scripts (`scripts/validate_browser.py`, `scripts/validate_browser_framestepped.py`) that are 80% duplicates — the real-time one now exists only as a trophy for a failed approach.
+- A heuristic agent (`scripts/heuristic_agent.py` at 523 lines) that shares nothing with anything else.
+- A test file (`tests/test_env_v2.py`) whose name still references v2, even after v3 shipped and the codebase moved on.
+- 11 observation dimensions' worth of hand-tuned normalization constants scattered across three files, each of which has to stay in lockstep for anything to work.
+- Four separate "obstacle dx/step" debugging conventions.
+- A vision lock at v2.0 whose "browser-native PPO" row was still "in progress" when the run ended — and that work is what the current, untested ChromeDinoEnv and train_browser.py were trying to deliver.
+
+None of this is individually egregious. It's all locally justified by some slice's local decision. But nobody ever asked "does this repo make sense as a whole?" because the slice protocol never asked that question. Every slice asked "what is the next thing to do?" and the answer was always another file. The result is 3,072 lines of Python that implement roughly the same ~500 lines of actual ideas, three ways.
+
+### The vision lock drifted to describe the code, not the goal
+
+v1.0 of the vision was "headless PPO that plays Chrome Dino." The current v2.0 is "multiple approaches to Chrome Dino, built autonomously, as a blog post about how autonomous dev changes experimentation cost." That is a perfectly defensible project, but it is not what was originally scoped — it's what survived. Every time a slice didn't achieve its goal, the goal got reframed broader until it included what the slice did achieve. "Headless PPO scored mean 439 frame-stepped" is not a success in vision v1.0. It is a success in vision v2.0, because v2.0 was written to accommodate it. That is the tell for scope drift driven by motivated reasoning, not by new information.
+
+### The agent optimized for "closing the slice," not for the outcome
+
+The slice protocol — implement, test, review, commit, checkpoint — rewards finishing things. It does not reward noticing that the thing being finished is the wrong thing. Across ten slices the reviewer subagent caught formatting issues, missing tests, and one off-by-one comment. It never once said "this whole line of work isn't going to hit the success criterion, we should stop." That's not the reviewer's fault; it wasn't asked to. But the absence of a strategic check at any layer of the loop is why v1 → v2 → v3 happened at all. A human looking at 8% → 9% → 11% would have stopped after v2. The autonomous loop couldn't, because stopping isn't a slice.
+
+### Things that were *not* actually wrong
+
+In fairness: the 20-dim feature-vector observation space was a good call (pixel observations for this game would have been overkill). Lifting physics constants from Chromium source rather than guessing was right. PPO over DQN was reasonable. The JS frame-stepping hack was genuinely clever engineering and the diagnosis of the timing mismatch was sound. These are parts worth keeping in spirit. They are not parts worth keeping in *code* — the code around them is the scar tissue of the failure, not the good parts.
+
+### What the redux has to do differently
+
+Not a plan, just the constraints the redux should be built under — to be codified properly in the new vision lock once the template is applied:
+
+1. **The success metric is a real-time browser score.** Frame-stepped numbers are diagnostic tools, not deliverables. If the agent can't play at 60fps in an unmodified Chrome window, it isn't done.
+2. **Stopping is a first-class action.** If two iterations of the same approach don't move the metric meaningfully, the next action is a strategic re-plan, not another iteration. The autonomous workflow has to have an explicit mechanism for this — the new template's `critic` / `product-owner` / `strategic-review` stages are the obvious place.
+3. **One environment, one training script, one eval script.** If there are two of anything, justify it in an ADR before writing it.
+4. **The heuristic is the baseline to beat, not a trophy.** If RL doesn't beat 559 in real-time Chrome, RL didn't do anything.
+5. **The vision lock is written once and defended, not continuously accommodated.** Major changes go to a human. "We got 74% transfer in a non-deployable configuration" is not new information that justifies a scope change — it's a failure to hit the original scope, which is a different thing.
+
+That's the honest read. The tidy three-act narrative above is for a blog post. This section is for the next agent session to read before it starts writing code.
+

@@ -2,22 +2,26 @@
 
 ## Current State
 
-See [CURRENT-STATE.md](CURRENT-STATE.md) for the latest checkpoint.
+- [state.md](state.md) — machine-readable workflow state (parsed by hooks)
+- [CURRENT-STATE.md](CURRENT-STATE.md) — narrative checkpoint, waivers, context
+- [sessions/](sessions/) — per-session activity logs
 
 ## Phases
 
-| Phase | Title | Status |
-|-------|-------|--------|
-| 0 | Vision Baseline | Not started |
+Phase plans live in [phases/](phases/). Each phase has a design plan
+(`phase-N-design.md`), an implementation plan (`phase-N-implementation.md`),
+critique artifacts from the critic, per-slice review artifacts from the
+reviewer, and a wrap summary under [`../docs/wraps/`](../docs/wraps/).
 
-Phase plans are stored in [phases/](phases/).
+The current `Phase` and `Phase Title` are tracked in [state.md](state.md).
 
 ## How Phases Work
 
-1. **Plan** — `/phase-plan` creates a planning doc with features, dependencies, and acceptance criteria
-2. **Detail** — `/implementation-plan` creates a file-by-file checklist
-3. **Implement** — `/implement` executes the plan with tests
-4. **Review** — `/code-review` reviews code quality, architecture, and security
-5. **Complete** — `/phase-complete` updates docs, records lessons, marks done
+1. **Design** — `/design-plan` produces user stories, acceptance criteria, non-goals, risks, ADR candidates, test strategy, and a slice breakdown (planner → critic critique → design approval)
+2. **Plan** — `/implementation-plan` produces a file-by-file slice plan (planner → critic critique)
+3. **Implement** — `/implement` executes the slice loop (tester + reviewer per slice)
+4. **Code Review** — `/code-review` per slice; verdict recorded in state.md
+5. **Strategic Review** — `/strategic-review` validates shipped phase against design intent (product-owner)
+6. **Complete** — `/phase-complete` runs the cleanup checklist, writes the wrap summary, advances the state machine
 
-The autonomous builder agent performs this cycle automatically with enforced review gates. The prompts are available as manual overrides for human-driven sessions.
+The autonomous builder agent performs this cycle automatically with hook-enforced gates. The prompts are available as manual overrides for human-driven sessions.

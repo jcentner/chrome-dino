@@ -1,46 +1,83 @@
 # chrome-dino
 
-Multiple approaches to playing Chrome's offline dinosaur game, all built autonomously. (2018 supervised CNN → 2023 DQN+browser → 2026 headless PPO + heuristic + browser-native PPO).
+Autonomous approaches to Chrome Dino
+
+Cross-agent instructions recognized by GitHub Copilot, Claude Code, and other AI agents operating on this repo.
 
 ## Conventions
 
 - **Language**: Python
-- **Checkpoint file**: `roadmap/CURRENT-STATE.md` — read this first every session
-- **Vision lock**: `docs/vision/VISION-LOCK.md` — highest-authority document, versioned in place with changelog
-- **ADRs**: Record significant decisions in `docs/architecture/decisions/`
-- **Open questions**: Track uncertainty in `docs/reference/open-questions.md`
-- **Tech debt**: Track compromises in `docs/reference/tech-debt.md`
-- **Stack skills**: `.github/skills/` — technology-specific skills that ground agents in official docs
+- **Checkpoint files**: [`roadmap/state.md`](roadmap/state.md) (machine-readable; hooks parse it) and [`roadmap/CURRENT-STATE.md`](roadmap/CURRENT-STATE.md) (narrative). Read both first every session.
+- **Vision lock**: [`docs/vision/VISION-LOCK.md`](docs/vision/VISION-LOCK.md) — highest-authority document.
+- **ADRs**: [`docs/architecture/decisions/`](docs/architecture/decisions/)
+- **Open questions**: [`docs/reference/open-questions.md`](docs/reference/open-questions.md)
+- **Tech debt**: [`docs/reference/tech-debt.md`](docs/reference/tech-debt.md)
+- **Stack skills**: [`.github/skills/`](.github/skills/) — one skill per adopted technology.
+- **Workflow catalog**: [`.github/catalog/MANIFEST.md`](.github/catalog/MANIFEST.md) — dormant capabilities, activated at bootstrap by the human.
 
-## Development Workflow
+## Agents
 
-This project uses an autonomous build loop. The agent reads the checkpoint, identifies the next slice of work, implements it, reviews it, commits it, and checkpoints.
+Core (shipped by default):
 
-**Slice protocol** — for every unit of work:
-1. Implement the change
-2. Run tests — do not proceed if tests fail
-3. Review code (invoke reviewer subagent or self-review)
-4. Fix Critical/Major findings
-5. Commit with `type(scope): description` format (feat, fix, docs, refactor, test)
-6. Update `roadmap/CURRENT-STATE.md`
+| Agent | Role |
+|-------|------|
+| `autonomous-builder` | Stage orchestrator. Dispatches subagents based on `Stage` in state.md. |
+| `planner` | Design plans, implementation plans, revisions, strategic-review fallback. Read + plan-file writes. |
+| `critic` | Adversarial review of design + implementation plans. SubagentStop-verified verdict. |
+| `product-owner` | User stories (design mode) / strategic review (review mode). SubagentStop-verified. |
+| `reviewer` | Code review + security + docs-sync. SubagentStop-verified verdict. |
+| `tester` | Writes tests from spec without reading implementation. Isolation hook-enforced. |
+
+Catalog (activated on demand at bootstrap):
+
+| Agent | Role |
+|-------|------|
+| `designer` | Visual design system via DESIGN.md. Project has frontend/UI code. |
+| `security-reviewer` | OWASP, secrets, auth/authz audit. Project handles auth/payments/PII. |
+
+## Stage pipeline
+
+`bootstrap → planning → design-critique → (blocked, Blocked Kind=awaiting-design-approval) → implementation-planning → implementation-critique → executing → reviewing → cleanup → planning`
+
+The `blocked` step on this line is a **scheduled** interruption for design approval — not a generic error state. `Blocked Kind` distinguishes the cause:
+
+- `awaiting-design-approval` — this scheduled approval gate.
+- `awaiting-vision-update` — phase-complete proposed a vision change.
+- `awaiting-human-decision` — a non-design decision surfaced.
+- `error` — irrecoverable runtime failure (out-of-band; not part of the normal flow).
+- `vision-exhausted` — all roadmap phases completed; next step is `/vision-expand`.
+
+After any `blocked` session, run `/resume` to route on `Blocked Kind`. The session-gate hook refuses to allow a session to stop with `Stage: blocked` unless `Blocked Kind` is one of the values above — “blocked with no reason” is not a valid exit.
+
+The single hard human gate under autopilot is **design plan approval**, enforced by the builder transitioning to `Stage: blocked` with `Blocked Kind: awaiting-design-approval`.
+## Prompts (manual override entry points)
+
+See [`.github/prompts/PROMPT-GUIDE.md`](.github/prompts/PROMPT-GUIDE.md). The prompts are override entry points — the autonomous builder orchestrates the full pipeline.
 
 ## Rules
 
-- **Vision lock update rules**: Minor updates (within-scope) may be made in place with a minor version bump and changelog entry. Scope/goal changes require human approval — propose them in `roadmap/CURRENT-STATE.md` first.
-- Run tests before committing — never commit broken tests
-- Update docs when code changes affect documented behavior
-- Record new design decisions as ADRs
-- Record compromises in the tech debt tracker
-- New terms go in `docs/reference/glossary.md`
-- When adopting a new technology, create a stack skill in `.github/skills/` before writing implementation code
+- **Workflow state vocabulary is exact** — `approved` not `accepted`, `pass` not `passed`. Hooks parse field values literally.
+- **Vision lock update rules** — minor updates in place with minor version bump + changelog; scope/goal changes require human approval, propose in `CURRENT-STATE.md` `## Proposed Vision Updates` first.
+- **Run tests before committing.** Never commit broken tests.
+- **Update docs when code changes affect documented behavior** in the same slice.
+- **Record new design decisions as ADRs.**
+- **Record compromises in the tech debt tracker.**
+- **New terms go in the glossary.**
+- **When adopting a new technology**, create a stack skill under `.github/skills/` before non-trivial implementation code using it.
 
-## Authority Order (highest first)
+## Authority order (highest first)
 
-1. Vision lock (`docs/vision/VISION-LOCK.md`)
-2. ADRs (`docs/architecture/decisions/`)
+1. Vision lock
+2. ADRs
 3. Architecture docs
-4. Roadmap and planning docs
-5. Open questions
+4. Roadmap + phase plans
+5. Open questions, tech debt
 6. Instructions and prompts
 
-Lower-priority artifacts must be updated to match higher-priority ones.
+Lower-priority artifacts are updated to match higher-priority ones — not the reverse.
+
+## Where to look
+
+- **Project-level Copilot instructions**: [`.github/copilot-instructions.md`](.github/copilot-instructions.md) — enforcement tiers, state vocabulary, execution modes.
+- **Catalog index**: [`.github/catalog/MANIFEST.md`](.github/catalog/MANIFEST.md).
+- **Prompt guide**: [`.github/prompts/PROMPT-GUIDE.md`](.github/prompts/PROMPT-GUIDE.md).
