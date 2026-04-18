@@ -8,6 +8,8 @@
 
 ## Phases
 
+- **Phase 1 — Real-time browser-native agent to MET**: [phases/phase-1-design.md](phases/phase-1-design.md) (Design Status: in-critique)
+
 Phase plans live in [phases/](phases/). Each phase has a design plan
 (`phase-N-design.md`), an implementation plan (`phase-N-implementation.md`),
 critique artifacts from the critic, per-slice review artifacts from the

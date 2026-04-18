@@ -30,15 +30,15 @@
 
 ## Workflow State
 
-- **Stage**: bootstrap
+- **Stage**: design-critique
 - **Blocked Kind**: n/a
-- **Phase**: 0
-- **Phase Title**: Bootstrap
+- **Phase**: 1
+- **Phase Title**: Real-time browser-native agent to MET
 - **Source Root**: src/
 - **Test Path Globs**: **/test/**, **/tests/**, **/test_*, **/*_test.*, **/*.test.*, **/*.spec.*, **/__tests__/**, **/__test__/**, **/spec/**, **/specs/**
 - **Config File Globs**: package.json, tsconfig.json, tsconfig*.json, pyproject.toml, setup.cfg, setup.py, Cargo.toml, go.mod, pnpm-workspace.yaml, yarn.lock, pnpm-lock.yaml, package-lock.json, jest.config.*, vitest.config.*, pytest.ini, tox.ini, karma.conf.*, mocha.opts, .mocharc.*, conftest.py, *.config.*, *.config
-- **Design Plan**: n/a
-- **Design Status**: n/a
+- **Design Plan**: roadmap/phases/phase-1-design.md
+- **Design Status**: in-critique
 - **Design Critique Rounds**: 0
 - **Implementation Plan**: n/a
 - **Implementation Status**: n/a
