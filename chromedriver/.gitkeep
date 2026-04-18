@@ -1,0 +1,8 @@
+# chromedriver/
+
+ChromeDriver binary lives here, copied out of the `chrome-for-testing` zip
+during the runtime install (see
+[`docs/setup/windows-chrome-pinning.md`](../docs/setup/windows-chrome-pinning.md)).
+
+The binary itself is gitignored; this file (and `.gitkeep`) make sure the
+directory exists in a fresh checkout.

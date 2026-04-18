@@ -132,3 +132,12 @@ dmypy.json
 # Training artifacts
 models/
 logs/
+
+# Pinned ChromeDriver binary (re-installed per docs/setup/windows-chrome-pinning.md)
+chromedriver/*
+!chromedriver/.gitkeep
+
+# Slice-1+ eval artifacts and local logs
+logs/
+models/
+

@@ -7,3 +7,5 @@ numpy
 opencv-python-headless
 selenium
 webdriver-manager
+pytest>=8
+pytest-mock
