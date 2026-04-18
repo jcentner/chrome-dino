@@ -1,6 +1,6 @@
 # chrome-dino — Vision Lock
 
-> **Version**: 1.0.0
+> **Version**: 1.1.0
 > **Updated**: 2026-04-17
 > **Status**: Locked
 > **Rules**: Single versioned document, updated in place. Patch (1.0.x) for typos/clarifications that do not move scope or MET. Minor (1.x.0) for within-scope additions. Major (x.0.0) for scope changes — these require human approval per binding constraint 4 below.
@@ -38,7 +38,7 @@ The four constraints below are derived directly from the post-mortem's "What the
 1. **Real-time browser score is the only success metric.** Frame-stepped scores, headless-sim scores, and sim-transfer-ratio scores are diagnostic and may not be cited as evidence that MET (or any per-phase acceptance criterion grounded in MET) is met.
    *Rationale:* the v1 run reported "mean 439" while the deployable agent scored mean 64; the metric drifted away from the deliverable until the deliverable was effectively redefined to fit the metric.
 
-2. **Stopping is a first-class action.** If two consecutive iterations of the same approach do not move the real-time metric meaningfully — defined as **+10% relative or +50 absolute mean, whichever is smaller** — the next action is a strategic re-plan via the `critic` / `product-owner` / `strategic-review` flow, *not* a third iteration of the same approach.
+2. **Stopping is a first-class action.** If two consecutive iterations of the same approach do not move the real-time metric meaningfully — defined as **≥ +10% relative AND ≥ +50 absolute mean (both thresholds must be cleared; equivalently, whichever is larger)** — the next action is a strategic re-plan via the `critic` / `product-owner` / `strategic-review` flow, *not* a third iteration of the same approach.
    *Rationale:* v1 → v2 → v3 transfer ratios moved 8% → 9% → 11% over weeks; the autonomous loop had no mechanism to recognise that as a noise floor and stop.
 
 3. **One environment, one training script, one eval script.** Any second instance of any of these — or any other piece of agent infrastructure that already exists once — requires an ADR justifying the duplication *before* the duplicate is created.
@@ -70,3 +70,4 @@ This vision lock is the highest-authority document in the repo (see [AGENTS.md](
 | Version | Date | Change |
 |---------|------|--------|
 | 1.0.0 | 2026-04-17 | Initial lock (greenfield redux post-2026-v1 post-mortem). |
+| 1.1.0 | 2026-04-17 | Binding constraint 2 threshold direction corrected from "whichever is smaller" to "both thresholds must be cleared" (whichever is larger). Raised by phase-1 design-critique R1 item 3; the smaller-of rule mathematically permitted the v1 48→53→64 sunk-cost spiral the constraint exists to prevent. Human-approved 2026-04-17. |
