@@ -92,6 +92,19 @@ goes to `sessions/<id>.md` automatically.
   [phase-1-critique-implementation-R{1,2,3}.md](phases/).
   Stage advanced to `executing` with Active Slice = 1 (real-time
   validation harness + frozen heuristic baseline).
+- 2026-04-17 slice-1 source half: tester wrote 16 tests (12 unit + 1
+  schema-skipped + 4 schema = 14 active + 2 skipped); test contract
+  verified ModuleNotFoundError pre-implementation. Builder implemented
+  src/browser.py, src/heuristic.py, scripts/eval.py,
+  scripts/capture_fixtures.py with the §3.5 held-key invariant, single-
+  call DOM read, page-formula score readout, version pinning, pinned
+  artifact schema. ADR-001/002/005/006/008 written. Reviewer: pass, 0
+  Critical, 0 Major, 4 Minor (2 fixed inline: dead poll loop, missing
+  per-episode wall-clock cap; 2 logged TD-001/TD-002). 14 tests pass.
+  Slice 1 source committed as 7f1afa55. Stage → blocked /
+  awaiting-human-decision pending operator runtime install per
+  docs/setup/windows-chrome-pinning.md (download pinned Chrome +
+  ChromeDriver, paste back versions + SHA256s).
 - 2026-04-17 implementation-planning: planner drafted
   [phases/phase-1-implementation.md](phases/phase-1-implementation.md).
   Locked decisions: algorithm = SB3 DQN (double + dueling, MLP [64,64]) on

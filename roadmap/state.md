@@ -30,8 +30,8 @@
 
 ## Workflow State
 
-- **Stage**: executing
-- **Blocked Kind**: n/a
+- **Stage**: blocked
+- **Blocked Kind**: awaiting-human-decision
 - **Phase**: 1
 - **Phase Title**: Real-time browser-native agent to MET
 - **Source Root**: src/
@@ -45,7 +45,7 @@
 - **Implementation Critique Rounds**: 3
 - **Active Slice**: 1
 - **Slice Total**: 6
-- **Blocked Reason**: n/a
+- **Blocked Reason**: Slice 1 source half landed (commit 7f1afa55, 14/14 unit tests pass). Live half requires operator to install pinned Chrome runtime per docs/setup/windows-chrome-pinning.md, then paste back the version + SHA256 + ChromeDriver version so Builder can fill in the setup doc, set PINNED_CHROME_MAJOR, un-skip test_one_short_episode, and run the 20-episode heuristic eval + 5-episode AC-HARNESS manual count. Run /resume once runtime is installed.
 
 ## Slice Evidence
 
@@ -57,7 +57,7 @@
 - **Critical Findings**: 0
 - **Major Findings**: 0
 - **Strategic Review**: n/a
-- **Committed**: n/a
+- **Committed**: yes
 
 ## Phase Completion Checklist
 
