@@ -76,3 +76,40 @@ goes to `sessions/<id>.md` automatically.
   2 threshold reworded to "both thresholds must be cleared"). Design plan
   footnote and pending-amendment language stripped now that the wording
   is reconciled. Stage advanced to `implementation-planning`.
+- 2026-04-17 implementation-planning → critique → approved: planner wrote
+  [phase-1-implementation.md](phases/phase-1-implementation.md) locking
+  the design-deferred decisions (SB3 DQN double+dueling MLP[64,64], CDP
+  `Input.dispatchKeyEvent`, 14-dim scalar-`type_id` observation, free-run
+  step pacing, baseline reward `+1/step −100 terminal`, 14-day combined
+  wall-clock cap for slices 4+5, separate 3-day cap for slice 3 with
+  500k-step / 3-eval-cycle floors before beat-baseline gate). Three
+  critic rounds: R1 revise (1 blocker observation-dim inconsistency, 2
+  major concerns action-mapping bug + missing step-pacing), R2 revise
+  (no blockers, 2 new concerns reset-with-DUCK-held edge case + slice-3
+  unbudgeted), R3 approved (residual risk ADR-able during execution).
+  Two new ADRs queued: ADR-007 algorithm (slice 3), ADR-008 action
+  dispatch (slice 1). Critique artifacts:
+  [phase-1-critique-implementation-R{1,2,3}.md](phases/).
+  Stage advanced to `executing` with Active Slice = 1 (real-time
+  validation harness + frozen heuristic baseline).
+- 2026-04-17 implementation-planning: planner drafted
+  [phases/phase-1-implementation.md](phases/phase-1-implementation.md).
+  Locked decisions: algorithm = SB3 DQN (double + dueling, MLP [64,64]) on
+  off-policy/throughput grounds; action dispatch = CDP `Input.dispatchKeyEvent`
+  with 16ms swap criterion; reward = baseline `+1/step, -100 terminal`,
+  no shaping; 14-dim observation feature vector from `Runner.instance_`
+  (dino y/jumping/ducking, current_speed, two nearest obstacles × 5
+  fields, explicit no-obstacle sentinel fixing v1 bug #2) becomes ADR-003;
+  action space = `Discrete(3)` {NOOP, JUMP, DUCK} becomes ADR-004;
+  ADR-007 (algorithm) and ADR-008 (action dispatch) added on top of
+  design-plan ADR-001/002/005/006. Module layout: `src/browser.py`
+  (slice 1, no Gym contract), `src/env.py` (slice 2), `src/heuristic.py`,
+  `src/policy.py`, single `scripts/eval.py`, single `scripts/train.py`,
+  `scripts/capture_fixtures.py`. Six slices unchanged from design plan.
+  Open questions flagged for critic: subprocess-vs-in-process eval
+  re-entrancy under constraint 3, CDP-key-dispatch interpretation under
+  vision lock, observation-refinement-vs-reward-shaping distinction at
+  slice 4/5, score-readout formula choice, whether DQN should be locked
+  at design level not implementation level, whether a slice-3 floor exit
+  should pre-empt the slices 4-5 throughput burn. Stage advanced to
+  `implementation-critique`.
