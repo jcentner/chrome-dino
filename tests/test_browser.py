@@ -94,19 +94,30 @@ def test_version_check_raises_on_mismatch() -> None:
 # ---------------------------------------------------------------------------
 
 def test_send_action_dispatches_cdp() -> None:
-    """`send_action(JUMP)` dispatches exactly one `keyDown ArrowUp` and one
-    `keyUp ArrowUp` via CDP `Input.dispatchKeyEvent`."""
+    """`send_action(JUMP)` dispatches a `keyDown ArrowUp` and HOLDS it; the
+    `keyUp ArrowUp` is deferred until the next non-JUMP action so the dino
+    game's `endJump()` doesn't truncate the jump arc."""
     browser, driver = _make_browser()
 
     browser.send_action(JUMP)
 
     events = _cdp_key_events(driver)
     assert (KEYDOWN, ARROW_UP) in events
-    assert (KEYUP, ARROW_UP) in events
     assert events.count((KEYDOWN, ARROW_UP)) == 1
-    assert events.count((KEYUP, ARROW_UP)) == 1
+    # No keyUp ArrowUp until a non-JUMP action follows.
+    assert events.count((KEYUP, ARROW_UP)) == 0
     # No stray ArrowDown / Space dispatches on a cold JUMP.
     assert not any(key in {ARROW_DOWN, SPACE} for _, key in events)
+
+    # A second JUMP while ArrowUp is held must NOT re-dispatch keyDown.
+    browser.send_action(JUMP)
+    events = _cdp_key_events(driver)
+    assert events.count((KEYDOWN, ARROW_UP)) == 1
+
+    # NOOP releases the held ArrowUp.
+    browser.send_action(NOOP)
+    events = _cdp_key_events(driver)
+    assert events.count((KEYUP, ARROW_UP)) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -157,7 +168,9 @@ def test_duck_to_jump_to_duck_re_presses_arrowdown() -> None:
 
     events = _cdp_key_events(driver)
 
-    # Intermediate JUMP: keyUp ArrowDown, then keyDown ArrowUp, then keyUp ArrowUp.
+    # Intermediate JUMP: keyUp ArrowDown, then keyDown ArrowUp. ArrowUp is
+    # still held going into the second DUCK, which then releases it before
+    # pressing ArrowDown again.
     idx_first_keydown_arrowdown = events.index((KEYDOWN, ARROW_DOWN))
     idx_keyup_arrowdown = events.index((KEYUP, ARROW_DOWN))
     idx_keydown_arrowup = events.index((KEYDOWN, ARROW_UP))
@@ -167,6 +180,9 @@ def test_duck_to_jump_to_duck_re_presses_arrowdown() -> None:
     # The second DUCK re-presses ArrowDown → exactly two keyDown ArrowDown overall.
     assert events.count((KEYDOWN, ARROW_DOWN)) == 2
     assert events.count((KEYUP, ARROW_DOWN)) == 1  # only the JUMP-time release; the second hold is still held
+    # ArrowUp pressed once (held through JUMP), released on the second DUCK.
+    assert events.count((KEYDOWN, ARROW_UP)) == 1
+    assert events.count((KEYUP, ARROW_UP)) == 1
 
 
 def test_noop_releases_held_arrowdown() -> None:
@@ -228,11 +244,10 @@ def test_reset_then_jump_is_clean() -> None:
 
     # JUMP did NOT add a spurious keyUp ArrowDown.
     assert keyup_arrowdown_count_after == keyup_arrowdown_count_before
-    # JUMP DID dispatch a clean ArrowUp press/release.
+    # JUMP DID dispatch a clean ArrowUp press (no keyUp — it stays held).
     new_events = events_after[len(events_before_jump):]
     assert (KEYDOWN, ARROW_UP) in new_events
-    assert (KEYUP, ARROW_UP) in new_events
-    assert new_events.index((KEYDOWN, ARROW_UP)) < new_events.index((KEYUP, ARROW_UP))
+    assert (KEYUP, ARROW_UP) not in new_events
 
 
 def test_context_manager_releases_held_keys_on_exit() -> None:

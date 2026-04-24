@@ -43,6 +43,7 @@ _EPISODE_REQUIRED = {
     "score",
     "steps",
     "wall_seconds",
+    "wall_capped",
     "page_seconds_at_gameover",
     "gameover_detection_delay_ms",
     "per_step_latency_ms_p50",
@@ -183,12 +184,14 @@ def _run_one_episode(
     steps = 0
     consecutive_none_reads = 0
 
+    wall_capped = False
     while True:
         if (time.perf_counter() - wall_start) > max_episode_seconds:
-            raise RuntimeError(
-                f"episode exceeded {max_episode_seconds}s wall-clock cap "
-                f"after {steps} steps; aborting to avoid hanging the eval"
-            )
+            wall_capped = True
+            gameover_wall = time.perf_counter()
+            state = browser.read_state() or {}
+            page_clock_at_gameover = float(state.get("time") or 0.0) / 1000.0
+            break
 
         t0 = time.perf_counter()
         state = browser.read_state()
@@ -220,6 +223,7 @@ def _run_one_episode(
         "score": int(score),
         "steps": int(steps),
         "wall_seconds": float(wall_seconds),
+        "wall_capped": bool(wall_capped),
         "page_seconds_at_gameover": float(page_clock_at_gameover),
         "gameover_detection_delay_ms": float(
             max(0.0, (wall_seconds - page_clock_at_gameover) * 1000.0)
@@ -287,6 +291,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--episodes", type=int, default=20)
     parser.add_argument("--checkpoint", default=None)
     parser.add_argument("--out", required=True, help="Output JSON artifact path.")
+    parser.add_argument("--max-episode-seconds", type=float, default=300.0,
+                        help="Wall-clock cap per episode. Lower for fast iteration; "
+                             "the dino can survive indefinitely with the held-jump policy.")
     args = parser.parse_args(argv)
 
     policy_act = _resolve_policy(args.policy, args.checkpoint)
@@ -316,7 +323,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         for _ in range(int(args.episodes)):
-            ep = _run_one_episode(browser, policy_act)
+            ep = _run_one_episode(browser, policy_act, max_episode_seconds=args.max_episode_seconds)
             artifact["episodes"].append(ep)
     finally:
         browser.close()

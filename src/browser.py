@@ -135,8 +135,12 @@ class Browser:
 
     def __init__(self, driver: Any) -> None:
         self._driver = driver
-        # §3.5 held-key invariant: track whether ArrowDown is currently held.
+        # §3.5 held-key invariant: track whether ArrowDown / ArrowUp are
+        # currently held. ArrowUp must be held through the full jump or the
+        # dino-game's `endJump()` truncates the arc to DROP_VELOCITY once
+        # `MIN_JUMP_HEIGHT` (~30 px) is reached.
         self._arrow_down_held = False
+        self._arrow_up_held = False
 
     @classmethod
     def launch(cls) -> "Browser":
@@ -271,16 +275,25 @@ class Browser:
         Invariant: any action that is NOT DUCK first releases held
         `ArrowDown` if it is currently down. DUCK presses `ArrowDown` once;
         repeated DUCK does not re-press while already held.
+
+        JUMP holds `ArrowUp` down on first call and only releases it when a
+        non-JUMP action follows. Releasing immediately after keyDown
+        truncates the dino's jump arc once `MIN_JUMP_HEIGHT` is reached
+        (the page's `endJump()` caps velocity at `DROP_VELOCITY=-5`).
         """
         if action != DUCK and self._arrow_down_held:
             self._dispatch_key(_KEYUP, _KEY_ARROW_DOWN)
             self._arrow_down_held = False
+        if action != JUMP and self._arrow_up_held:
+            self._dispatch_key(_KEYUP, _KEY_ARROW_UP)
+            self._arrow_up_held = False
 
         if action == NOOP:
             return
         if action == JUMP:
-            self._dispatch_key(_KEYDOWN, _KEY_ARROW_UP)
-            self._dispatch_key(_KEYUP, _KEY_ARROW_UP)
+            if not self._arrow_up_held:
+                self._dispatch_key(_KEYDOWN, _KEY_ARROW_UP)
+                self._arrow_up_held = True
             return
         if action == DUCK:
             if not self._arrow_down_held:
@@ -296,13 +309,26 @@ class Browser:
     def reset_episode(self) -> None:
         """Begin a new episode.
 
-        §3.5 invariant: release any held `ArrowDown` BEFORE dispatching the
+        \u00a73.5 invariant: release any held `ArrowDown` BEFORE dispatching the
         Space that starts the new run. Does not block on `Runner.playing`
         in the unit-test path; the live-browser path waits via `is_game_over`
         polling at the eval-loop level (kept out of the adapter to keep the
         adapter testable without a real timer).
+
+        If the live page exposes a `Runner` instance and the game is not
+        crashed, force `gameOver()` first so that the subsequent `Space`
+        triggers a real `restart()` (otherwise Space is a no-op once the
+        dino is already running).
         """
         self._release_held_keys()
+        try:
+            self._driver.execute_script(
+                "const r = (typeof Runner !== 'undefined' && Runner.getInstance) ? "
+                "(function(){try{return Runner.getInstance();}catch(e){return null;}})() : null; "
+                "if (r && r.playing && !r.crashed && typeof r.gameOver === 'function') { r.gameOver(); }"
+            )
+        except Exception:
+            pass
         self._dispatch_key(_KEYDOWN, _KEY_SPACE)
         self._dispatch_key(_KEYUP, _KEY_SPACE)
 
@@ -318,6 +344,11 @@ class Browser:
                 self._dispatch_key(_KEYUP, _KEY_ARROW_DOWN)
             finally:
                 self._arrow_down_held = False
+        if self._arrow_up_held:
+            try:
+                self._dispatch_key(_KEYUP, _KEY_ARROW_UP)
+            finally:
+                self._arrow_up_held = False
 
     def _dispatch_key(self, type_: str, key: str) -> None:
         code, vkey = _KEY_META[key]

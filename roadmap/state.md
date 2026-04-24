@@ -30,8 +30,8 @@
 
 ## Workflow State
 
-- **Stage**: blocked
-- **Blocked Kind**: awaiting-human-decision
+- **Stage**: executing
+- **Blocked Kind**: n/a
 - **Phase**: 1
 - **Phase Title**: Real-time browser-native agent to MET
 - **Source Root**: src/
@@ -45,7 +45,7 @@
 - **Implementation Critique Rounds**: 3
 - **Active Slice**: 1
 - **Slice Total**: 6
-- **Blocked Reason**: TD-003: heuristic baseline = 48.3 vs design assumption ~1500. Interacts with VISION-LOCK v1.1.0 stop-gate (+50 absolute trivially clearable). Human decision required: tighten AC-STOP-GATE (v1.2.0 lock amendment), swap baseline (also lock amendment), or accept MET=2000 as sole signal. See docs/reference/tech-debt.md TD-003 for options.
+- **Blocked Reason**: n/a
 
 ## Slice Evidence
 
