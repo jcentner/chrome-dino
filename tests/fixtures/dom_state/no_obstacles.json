@@ -1,0 +1,18 @@
+{
+  "activated": false,
+  "canvasWidth": 600,
+  "crashed": false,
+  "currentSpeed": 6.007000000000002,
+  "distanceRan": 0,
+  "obstacles": [
+    null,
+    null
+  ],
+  "playing": true,
+  "tRex": {
+    "ducking": false,
+    "jumping": true,
+    "yPos": 91
+  },
+  "time": 74.60000002384186
+}

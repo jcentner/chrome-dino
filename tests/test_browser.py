@@ -271,13 +271,15 @@ def test_context_manager_releases_held_keys_on_exit() -> None:
 # ---------------------------------------------------------------------------
 
 def test_get_score_uses_page_formula() -> None:
-    """`get_score()` returns `floor(distanceRan * COEFFICIENT)` as computed by
-    the page. We mock `execute_script` to return the integer the page would
+    """`get_score()` returns the value computed page-side and passes it through
+    untouched. We mock `execute_script` to return the integer the page would
     have returned and assert `get_score()` matches.
 
-    Per implementation plan §6 slice 1 task 2, `get_score` reads
-    `Math.floor(Runner.instance_.distanceRan * Runner.config.COEFFICIENT)` —
-    the formula is evaluated page-side and returns an int.
+    Per the chromium-dino-runner skill, the page-side formula is
+    `Math.round(Math.ceil(Runner.getInstance().distanceRan) * 0.025)` —
+    matching `DistanceMeter.getActualDistance` in
+    components/neterror/resources/dino_game/distance_meter.ts. The formula is
+    evaluated in the browser; this test asserts the passthrough only.
     """
     expected_score = 1234
     browser, driver = _make_browser()
@@ -292,12 +294,6 @@ def test_get_score_uses_page_formula() -> None:
 # ---------------------------------------------------------------------------
 
 @pytest.mark.browser
-@pytest.mark.skip(
-    reason=(
-        "Requires pinned Chrome runtime — see "
-        "docs/setup/windows-chrome-pinning.md. Un-skip after slice-1 task 1."
-    )
-)
 def test_one_short_episode() -> None:
     """End-to-end: construct a real `Browser`, drive it through ~100
     heuristic steps, assert no exceptions and that the produced single-episode
@@ -305,7 +301,7 @@ def test_one_short_episode() -> None:
     from src.browser import Browser  # local import: real driver construction
     from src.heuristic import act as heuristic_act
 
-    with Browser() as browser:
+    with Browser.launch() as browser:
         browser.version_check()
         browser.reset_episode()
         steps = 0

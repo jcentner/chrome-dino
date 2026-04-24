@@ -71,27 +71,39 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         browser.version_check()
-        browser.reset_episode()
-        time.sleep(0.5)
+        # Run up to 5 episodes to maximise scenario coverage; the heuristic
+        # crashes early so a single episode rarely sees ducking / multiple
+        # obstacle slots / etc.
+        for _episode in range(5):
+            browser.reset_episode()
+            # Wait for boot transition.
+            for _ in range(50):
+                s = browser.read_state()
+                if s is not None and s.get("playing") and not s.get("crashed"):
+                    break
+                time.sleep(0.05)
 
-        steps = 0
-        while steps < args.max_steps and len(captured) < len(_TARGET_LABELS):
-            state = browser.read_state()
-            if state is None:
-                time.sleep(0.01)
-                continue
+            steps = 0
+            while steps < args.max_steps and len(captured) < len(_TARGET_LABELS):
+                state = browser.read_state()
+                if state is None:
+                    time.sleep(0.01)
+                    continue
 
-            if state.get("crashed"):
-                captured.setdefault("terminal", state)
+                if state.get("crashed"):
+                    captured.setdefault("terminal", state)
+                    break
+
+                label = _classify(state)
+                if label and label not in captured:
+                    captured[label] = state
+
+                action = int(heuristic_act(state))
+                browser.send_action(action)
+                steps += 1
+
+            if len(captured) >= len(_TARGET_LABELS):
                 break
-
-            label = _classify(state)
-            if label and label not in captured:
-                captured[label] = state
-
-            action = int(heuristic_act(state))
-            browser.send_action(action)
-            steps += 1
     finally:
         browser.close()
 

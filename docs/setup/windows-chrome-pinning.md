@@ -15,13 +15,15 @@ reproducible against a fixed Chrome version that does not auto-update.
 
 | Field | Value |
 |---|---|
-| Chrome version (full) | _pending_ |
-| Chrome major version | _pending_ |
-| Chrome SHA256 | _pending_ |
-| ChromeDriver version (full) | _pending_ |
-| ChromeDriver SHA256 | _pending_ |
-| Date pinned | _pending_ |
-| Pinned by | _pending_ |
+| Chrome version (full) | `148.0.7778.56` |
+| Chrome major version | `148` |
+| Chrome SHA256 | `1BCB7A338AEEB27DFECE8B46E4ADEA6C7DB4E5A32430679F550FFF6F0D7A7CAC` |
+| ChromeDriver version (full) | `148.0.7778.56` |
+| ChromeDriver SHA256 | `E6D398D25FFC997C92EFD90B93A2C1FCE5F9D9DCC7553A17039B5D631A75AA88` |
+| Date pinned | 2026-04-23 |
+| Pinned by | jakce |
+
+> Note: `chrome.exe --version` returned blank on Windows for this Chrome-for-Testing build. Version was confirmed via `chromedriver.exe --version` (versions are paired in the chrome-for-testing release row) and via `navigator.userAgent` at runtime — `Browser.version_check()` enforces the major against `PINNED_CHROME_MAJOR` on every eval.
 
 After filling these in, also set `PINNED_CHROME_MAJOR` in
 [`src/browser.py`](../../src/browser.py) to the major number above.

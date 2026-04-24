@@ -150,7 +150,31 @@ def _run_one_episode(
     Bounded by both a wall-clock cap and a consecutive-None-read cap so a
     silently-failed page navigation cannot hang the manual eval.
     """
-    browser.reset_episode()
+    # `Browser.reset_episode()` only dispatches Space; it does not block on
+    # the page actually transitioning out of the prior episode's `crashed`
+    # state. Per the chromium-dino-runner skill, jump-key restart is gated by
+    # `gameoverClearTime` (1200 ms) after a crash. We retry the Space at
+    # short intervals until the page reports `playing && !crashed`, which
+    # also handles the very first kickoff (no prior crash, just `playing`
+    # transitions true on the first Space).
+    _BOOT_TIMEOUT_S = 5.0
+    _BOOT_RETRY_INTERVAL_S = 0.25
+    boot_deadline = time.perf_counter() + _BOOT_TIMEOUT_S
+    while True:
+        browser.reset_episode()
+        retry_deadline = time.perf_counter() + _BOOT_RETRY_INTERVAL_S
+        while time.perf_counter() < retry_deadline:
+            s = browser.read_state()
+            if s is not None and s.get("playing") and not s.get("crashed"):
+                break
+            time.sleep(0.02)
+        else:
+            if time.perf_counter() < boot_deadline:
+                continue
+            raise RuntimeError(
+                f"could not start a fresh episode within {_BOOT_TIMEOUT_S}s"
+            )
+        break
 
     step_latencies_ms: list[float] = []
     wall_start = time.perf_counter()
@@ -230,43 +254,13 @@ def _resolve_policy(name: str, checkpoint: str | None):
 
 
 def _launch_browser():
-    """Construct a real `Browser` against the pinned runtime. Imported lazily
-    so the unit tests (which don't need Selenium) can collect cleanly."""
-    from selenium import webdriver
-    from selenium.webdriver.chrome.options import Options
-    from selenium.webdriver.chrome.service import Service
-
+    """Construct a real `Browser` against the pinned runtime, returning
+    `(browser, driver)` so the caller can read driver capabilities for the
+    artifact metadata. Imported lazily to keep unit-test collection fast."""
     from src.browser import Browser
 
-    runtime_dir = os.environ.get("CHROME_DINO_RUNTIME", r"C:\chrome-dino-runtime")
-    chrome_binary = os.path.join(runtime_dir, "chrome-win64", "chrome.exe")
-    chromedriver_binary = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "chromedriver",
-        "chromedriver.exe",
-    )
-
-    options = Options()
-    options.binary_location = chrome_binary
-    options.add_argument("--user-data-dir=" + os.path.join(runtime_dir, "profile"))
-    options.add_argument("--no-first-run")
-    options.add_argument("--no-default-browser-check")
-
-    service = Service(executable_path=chromedriver_binary)
-    driver = webdriver.Chrome(service=service, options=options)
-    # Trigger offline mode, then navigate to chrome://dino.
-    driver.execute_cdp_cmd(
-        "Network.emulateNetworkConditions",
-        {"offline": True, "latency": 0, "downloadThroughput": 0, "uploadThroughput": 0},
-    )
-    try:
-        driver.get("chrome://dino")
-    except Exception:
-        # Some Chrome versions throw on chrome://dino navigation; fall back to
-        # an unreachable URL which renders the same offline page.
-        driver.get("http://chrome-dino-offline.invalid/")
-
-    return Browser(driver=driver), driver
+    browser = Browser.launch()
+    return browser, browser._driver  # noqa: SLF001 — caller needs caps
 
 
 def _chrome_versions(driver) -> tuple[str, str]:

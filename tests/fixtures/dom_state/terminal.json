@@ -1,0 +1,30 @@
+{
+  "activated": true,
+  "canvasWidth": 600,
+  "crashed": true,
+  "currentSpeed": 7.615000000000539,
+  "distanceRan": 2081.418197960627,
+  "obstacles": [
+    {
+      "height": 35,
+      "type": "cactusSmall",
+      "width": 51,
+      "xPos": -1,
+      "yPos": 105
+    },
+    {
+      "height": 50,
+      "type": "cactusLarge",
+      "width": 75,
+      "xPos": 601,
+      "yPos": 90
+    }
+  ],
+  "playing": false,
+  "tRex": {
+    "ducking": false,
+    "jumping": true,
+    "yPos": 63
+  },
+  "time": 5666
+}

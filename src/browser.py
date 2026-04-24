@@ -25,10 +25,21 @@ _KEY_ARROW_UP = "ArrowUp"
 _KEY_ARROW_DOWN = "ArrowDown"
 _KEY_SPACE = " "
 
+# CDP requires `code` and `windowsVirtualKeyCode` (which becomes `e.keyCode`
+# in the page) for the dino game's onKeyDown/onKeyUp handlers to recognize
+# the press. The handlers check `runnerKeycodes.{jump,duck}.includes(keyCode)`
+# — without keyCode the event is silently dropped. See chromium-dino-runner
+# skill ("Action dispatch via CDP").
+_KEY_META: dict[str, tuple[str, int]] = {
+    _KEY_SPACE: ("Space", 32),
+    _KEY_ARROW_UP: ("ArrowUp", 38),
+    _KEY_ARROW_DOWN: ("ArrowDown", 40),
+}
+
 # Pinned Chrome major. Lives next to the runtime install at
 # C:\chrome-dino-runtime\ (see docs/setup/windows-chrome-pinning.md).
 # Set to None to skip the check; set to a major-version int to enforce.
-PINNED_CHROME_MAJOR: int | None = None
+PINNED_CHROME_MAJOR: int | None = 148
 
 
 class VersionMismatchError(RuntimeError):
@@ -40,7 +51,9 @@ class VersionMismatchError(RuntimeError):
 # single `execute_script` call so the returned snapshot is internally
 # consistent (no torn read across two round-trips).
 _READ_STATE_JS = r"""
-const r = (typeof Runner !== 'undefined') ? Runner.instance_ : null;
+const r = (typeof Runner !== 'undefined' && typeof Runner.getInstance === 'function')
+  ? (function(){ try { return Runner.getInstance(); } catch (e) { return null; } })()
+  : (typeof Runner !== 'undefined' ? Runner.instance_ : null);
 if (!r) { return null; }
 const t = r.tRex;
 const obs = (r.horizon && r.horizon.obstacles) ? r.horizon.obstacles : [];
@@ -61,7 +74,7 @@ return {
   currentSpeed: r.currentSpeed,
   distanceRan: r.distanceRan,
   time: r.time,
-  canvasWidth: r.dimensions ? r.dimensions.WIDTH : null,
+  canvasWidth: r.dimensions ? (r.dimensions.WIDTH || r.dimensions.width) : null,
   tRex: {
     yPos: t ? t.yPos : null,
     jumping: t ? !!t.jumping : false,
@@ -71,20 +84,33 @@ return {
 };
 """
 
+# Score formula per components/neterror/resources/dino_game/distance_meter.ts
+# getActualDistance(): Math.round(Math.ceil(distanceRan) * 0.025).
+# Match the on-screen number exactly. distanceMeter is null pre-init, so fall
+# back to computing from distanceRan when needed.
 _GET_SCORE_JS = r"""
-const r = (typeof Runner !== 'undefined') ? Runner.instance_ : null;
+const r = (typeof Runner !== 'undefined' && typeof Runner.getInstance === 'function')
+  ? (function(){ try { return Runner.getInstance(); } catch (e) { return null; } })()
+  : (typeof Runner !== 'undefined' ? Runner.instance_ : null);
 if (!r) { return 0; }
-const c = (r.config && r.config.COEFFICIENT) ? r.config.COEFFICIENT : 0.025;
-return Math.floor(r.distanceRan * c);
+const d = Math.ceil(r.distanceRan || 0);
+if (r.distanceMeter && typeof r.distanceMeter.getActualDistance === 'function') {
+  return r.distanceMeter.getActualDistance(d);
+}
+return d ? Math.round(d * 0.025) : 0;
 """
 
 _GAME_OVER_JS = r"""
-const r = (typeof Runner !== 'undefined') ? Runner.instance_ : null;
+const r = (typeof Runner !== 'undefined' && typeof Runner.getInstance === 'function')
+  ? (function(){ try { return Runner.getInstance(); } catch (e) { return null; } })()
+  : (typeof Runner !== 'undefined' ? Runner.instance_ : null);
 return !!(r && r.crashed);
 """
 
 _PLAYING_JS = r"""
-const r = (typeof Runner !== 'undefined') ? Runner.instance_ : null;
+const r = (typeof Runner !== 'undefined' && typeof Runner.getInstance === 'function')
+  ? (function(){ try { return Runner.getInstance(); } catch (e) { return null; } })()
+  : (typeof Runner !== 'undefined' ? Runner.instance_ : null);
 return !!(r && r.playing);
 """
 
@@ -111,6 +137,60 @@ class Browser:
         self._driver = driver
         # §3.5 held-key invariant: track whether ArrowDown is currently held.
         self._arrow_down_held = False
+
+    @classmethod
+    def launch(cls) -> "Browser":
+        """Construct a `Browser` against the pinned runtime.
+
+        Lazy-imports Selenium so unit tests (which inject a `MagicMock`
+        driver) don't pay for it. Reads the runtime location from the
+        `CHROME_DINO_RUNTIME` env var, defaulting to
+        `C:\\chrome-dino-runtime` per ADR-002 / setup doc.
+        """
+        import os
+        from selenium import webdriver
+        from selenium.webdriver.chrome.options import Options
+        from selenium.webdriver.chrome.service import Service
+
+        runtime_dir = os.environ.get("CHROME_DINO_RUNTIME", r"C:\chrome-dino-runtime")
+        chrome_binary = os.path.join(runtime_dir, "chrome-win64", "chrome.exe")
+        chromedriver_binary = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "chromedriver",
+            "chromedriver.exe",
+        )
+
+        options = Options()
+        options.binary_location = chrome_binary
+        options.add_argument("--user-data-dir=" + os.path.join(runtime_dir, "profile"))
+        options.add_argument("--no-first-run")
+        options.add_argument("--no-default-browser-check")
+
+        service = Service(executable_path=chromedriver_binary)
+        driver = webdriver.Chrome(service=service, options=options)
+        # Trigger offline mode, then navigate to chrome://dino.
+        driver.execute_cdp_cmd(
+            "Network.emulateNetworkConditions",
+            {
+                "offline": True,
+                "latency": 0,
+                "downloadThroughput": 0,
+                "uploadThroughput": 0,
+            },
+        )
+        try:
+            driver.get("chrome://dino")
+        except Exception:
+            # Some Chrome versions throw on chrome://dino navigation; the
+            # canonical fallback is any unreachable URL — Chrome's offline
+            # error page hosts the same dino game. Selenium also raises
+            # ERR_INTERNET_DISCONNECTED on the offline page itself, which is
+            # *exactly the page we want*, so swallow that too.
+            try:
+                driver.get("http://chrome-dino-offline.invalid/")
+            except Exception:
+                pass
+        return cls(driver=driver)
 
     # ------------------------------------------------------------------
     # Construction / teardown
@@ -240,5 +320,11 @@ class Browser:
                 self._arrow_down_held = False
 
     def _dispatch_key(self, type_: str, key: str) -> None:
-        params = {"type": type_, "key": key}
+        code, vkey = _KEY_META[key]
+        params = {
+            "type": type_,
+            "key": key,
+            "code": code,
+            "windowsVirtualKeyCode": vkey,
+        }
         self._driver.execute_cdp_cmd(_CDP_DISPATCH, params)

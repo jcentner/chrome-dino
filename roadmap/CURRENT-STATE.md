@@ -105,6 +105,47 @@ goes to `sessions/<id>.md` automatically.
   awaiting-human-decision pending operator runtime install per
   docs/setup/windows-chrome-pinning.md (download pinned Chrome +
   ChromeDriver, paste back versions + SHA256s).
+- 2026-04-23 slice-1 live half: operator delivered Chrome 148.0.7778.56
+  (Chrome SHA256 1BCB7A33…7CAC, Driver SHA256 E6D398D2…AA88) to
+  C:\chrome-dino-runtime\. Filled in the pinning table, set
+  `PINNED_CHROME_MAJOR = 148`, un-skipped `test_one_short_episode`. Three
+  bugs surfaced and were fixed before the eval ran:
+  (1) **Singleton API** — Chromium dino was rewritten to TypeScript and
+  `Runner.instance_` no longer exists; modern API is
+  `Runner.getInstance()`. Created
+  [`.github/skills/chromium-dino-runner/`](../.github/skills/chromium-dino-runner/SKILL.md)
+  to document the new API, the `initializeInstance` assert pitfall, the
+  bootstrap sequence, the visibility/blur pause behaviour, and the
+  fixed-by-source score formula. Updated `_READ_STATE_JS`, `_GET_SCORE_JS`,
+  `_GAME_OVER_JS`, `_PLAYING_JS` with a feature-detected dual-path probe
+  (modern first, legacy fallback). (2) **Score formula** — design-plan/impl-
+  plan locked `Math.floor(distanceRan * COEFFICIENT)`. Authoritative source
+  in `distance_meter.ts::getActualDistance` is
+  `Math.round(Math.ceil(distanceRan) * 0.025)`; corrected. (3) **Action
+  dispatch** — CDP `Input.dispatchKeyEvent` was sending `{type, key}` only;
+  dino's `onKeyDown` reads `e.keyCode` (= CDP `windowsVirtualKeyCode`).
+  Added `_KEY_META` table (Space=32, ArrowUp=38, ArrowDown=40) so each
+  dispatch carries `code` + `windowsVirtualKeyCode` too. (4) **Episode
+  reset** — adapter docstring delegates the wait to the eval layer; eval
+  was sending Space and immediately reading state, hitting the 1200 ms
+  `gameoverClearTime` gate after a crash and reading the still-crashed
+  state. Wrapped boot in a 5 s deadline / 250 ms retry loop in
+  `_run_one_episode` that re-dispatches Space until the page reports
+  `playing && !crashed`. Live test passes (14 unit + 1 browser + 1
+  skipped). 20-episode heuristic eval ran clean to
+  `logs/slice1/heuristic_eval.json`. Captured 5 of 7 fixture scenarios via
+  capture_fixtures (mid_duck and near_crash unreachable because the
+  heuristic crashes on the first cactus — TD-004). **Surfaced concerns**:
+  measured heuristic mean = 48.3 (vs design-plan assumption ~1500); root
+  cause is the frozen jump threshold firing too early so the dino is
+  descending when the cactus arrives — TD-003 logs this as HIGH priority
+  because it interacts with VISION-LOCK v1.1.0 binding-constraint 2 (the
+  +50 absolute stop-gate becomes trivially clearable from a 48 baseline,
+  removing nearly all stop-gate signal). Human decision required before
+  slice 3 commits training: tighten AC-STOP-GATE (v1.2.0 lock amendment),
+  swap the frozen baseline (also requires lock amendment for AC-SINGLETON
+  identity), or accept that MET=2000 carries the real evaluation weight.
+  See TD-003 for full disposition options.
 - 2026-04-17 implementation-planning: planner drafted
   [phases/phase-1-implementation.md](phases/phase-1-implementation.md).
   Locked decisions: algorithm = SB3 DQN (double + dueling, MLP [64,64]) on
