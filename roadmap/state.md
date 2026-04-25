@@ -30,8 +30,8 @@
 
 ## Workflow State
 
-- **Stage**: executing
-- **Blocked Kind**: n/a
+- **Stage**: blocked
+- **Blocked Kind**: awaiting-human-decision
 - **Phase**: 1
 - **Phase Title**: Real-time browser-native agent to MET
 - **Source Root**: src/
@@ -45,7 +45,7 @@
 - **Implementation Critique Rounds**: 3
 - **Active Slice**: 3
 - **Slice Total**: 6
-- **Blocked Reason**: n/a
+- **Blocked Reason**: Slice 3 sanity-probe shipped. Operator: launch the 4h SB3 DQN training run when ready (alt-tabbing safe per visibility hotfix; render-stall fails fast per sanity probe).
 
 ## Slice Evidence
 
