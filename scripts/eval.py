@@ -245,13 +245,23 @@ def _resolve_policy(name: str, checkpoint: str | None):
         # Slice-3 wires this up; slice 1 only ships the surface.
         try:
             from src.policy import LearnedPolicy  # type: ignore[attr-defined]
+            from src.env import _observation_from_state  # type: ignore[attr-defined]
         except Exception as exc:
             raise SystemExit(
                 "learned policy requested but src/policy.py is not yet "
                 f"implemented (slice 3): {exc}"
             )
         loaded = LearnedPolicy.load(checkpoint)
-        return loaded.act
+
+        # Adapter: eval loop calls policy_act(state_dict); LearnedPolicy.act
+        # consumes the 14-dim observation per ADR-003 / ADR-007. The env
+        # owns observation construction, so route the dict through it
+        # before invoking the SB3 model.
+        def _learned_act(state: dict) -> int:
+            obs = _observation_from_state(state)
+            return loaded.act(obs)
+
+        return _learned_act
     # argparse enforces choices=_VALID_POLICIES, but keep the explicit guard
     # for direct callers of `_resolve_policy`.
     raise SystemExit(f"unknown policy: {name!r}")

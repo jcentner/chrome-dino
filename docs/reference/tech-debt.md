@@ -92,3 +92,19 @@ After all three fixes the heuristic reaches mean score â‰ˆ **400** over 10 episo
 **Description**: `DinoEnv.step` returns `REWARD_TERMINAL = -100.0` on every call after the first terminal, instead of the gymnasium convention of `0.0`. A misbehaving outer loop that keeps stepping past `terminated=True` would see episode reward diverge.
 **Why accepted**: Slice 2 spec (impl Â§6 task 4) is silent on the magnitude; the test pins `terminated=True` / `truncated=False` but not the reward value. `scripts/eval.py` (slice 1) breaks on `terminated=True`, so the divergence cannot occur in this repo today. Pre-emptive; deferred to slice 4 when training loops enter the picture.
 **Resolution path**: change the no-op-when-terminal branch to return `0.0`; add a regression test pinning the value.
+
+### TD-009: `_observation_from_state` is leading-underscore but cross-module-imported
+
+**Priority**: Low
+**Introduced**: Phase 1, slice 3 (reviewer minor — slice-3-authoring round 1)
+**Description**: `src/env._observation_from_state` is named with a leading underscore (Python convention for module-private), but it's listed in `__all__` and is imported by `scripts/eval.py`'s `_resolve_policy("learned", ...)` adapter to convert raw browser state dicts to the 14-dim env observation before invoking `LearnedPolicy.act`. The leading-underscore name advertises "module-private" but the actual usage is "module-public, second-class API."
+**Why accepted**: Renaming to `observation_from_state` (public) ripples through `tests/test_env.py` (which currently imports the underscored name) and would invalidate the slice-2 contract pinning. The leading-underscore name is at worst a code-style nit; the function's purity and stability are pinned by tests regardless of name.
+**Resolution path**: rename in a single commit when slice 4 or later already touches both files; update the import in `scripts/eval.py` and the import + symbol references in `tests/test_env.py`.
+
+### TD-010: `_git_sha` duplicated between `scripts/train.py` and `scripts/eval.py`
+
+**Priority**: Low
+**Introduced**: Phase 1, slice 3 (reviewer nit — slice-3-authoring round 1)
+**Description**: Both `scripts/train.py` and `scripts/eval.py` define an identical `_git_sha()` helper that runs `git rev-parse HEAD` with the same timeout / fallback. Two copies, one truth.
+**Why accepted**: Each is ~10 lines; abstracting them into `src/_git.py` is an architecturally-larger-than-the-fix change for a function that is unlikely to drift (it has no tunable behavior). The slice-3 review explicitly classed this a Nit, not a defect.
+**Resolution path**: introduce `src/_git.py::git_sha()`; delete both local copies; one trivial test pinning the function returns either a 40-char hex string or `"unknown"`.
