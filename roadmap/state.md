@@ -30,8 +30,8 @@
 
 ## Workflow State
 
-- **Stage**: executing
-- **Blocked Kind**: n/a
+- **Stage**: blocked
+- **Blocked Kind**: awaiting-human-decision
 - **Phase**: 1
 - **Phase Title**: Real-time browser-native agent to MET
 - **Source Root**: src/
@@ -57,7 +57,7 @@
 - **Critical Findings**: 0
 - **Major Findings**: 0
 - **Strategic Review**: n/a
-- **Committed**: pending
+- **Committed**: yes
 
 ## Phase Completion Checklist
 
