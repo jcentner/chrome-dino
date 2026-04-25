@@ -30,8 +30,8 @@
 
 ## Workflow State
 
-- **Stage**: blocked
-- **Blocked Kind**: awaiting-human-decision
+- **Stage**: executing
+- **Blocked Kind**: n/a
 - **Phase**: 1
 - **Phase Title**: Real-time browser-native agent to MET
 - **Source Root**: src/
@@ -45,7 +45,7 @@
 - **Implementation Critique Rounds**: 3
 - **Active Slice**: 3
 - **Slice Total**: 6
-- **Blocked Reason**: Slice 3 hotfix #2 (commit 7065bd39): visibility-event capture-phase swallow + pre-document visibilityState pin. Operator: re-launch the 4h run; alt-tabbing away should now be safe.
+- **Blocked Reason**: n/a
 
 ## Slice Evidence
 

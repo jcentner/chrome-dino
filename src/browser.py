@@ -10,6 +10,7 @@ No Gym contract here — that lives in `src.env` (slice 2).
 from __future__ import annotations
 
 import re
+import time
 from typing import Any
 
 # Action constants (also imported by tests and by src.heuristic).
@@ -330,7 +331,60 @@ class Browser:
             raise VersionMismatchError(
                 f"Chrome major mismatch: pinned={PINNED_CHROME_MAJOR}, "
                 f"live={live_major!r}"
-            )    # ------------------------------------------------------------------
+            )
+
+    def sanity_probe(self, *, timeout_s: float = 2.0, poll_s: float = 0.05) -> None:
+        """Verify the page is actually ticking the dino game loop.
+
+        Catches the failure mode that produced two slice-3 hotfixes:
+        the page loaded, `Runner.getInstance()` returned an object, but
+        the game loop wasn't advancing (paused via visibility, frozen on
+        the static "Press space to play" landing, etc.). A no-op env
+        run against such a page burns wall-clock without producing any
+        learning signal.
+
+        Protocol: dispatch a single Space (kickoff), then poll
+        `read_state` every `poll_s` seconds for up to `timeout_s`.
+        Success = at least one read shows `playing && currentSpeed > 0`
+        AND `distanceRan` strictly increased between two consecutive
+        such reads. Either condition alone is insufficient: a paused
+        post-crash page still has `currentSpeed` from the previous
+        episode, and a single `playing` read could be a transient.
+
+        Raises `RuntimeError` on timeout. Caller owns teardown.
+        """
+        # Kick the page out of its initial idle. Safe to call even if the
+        # page somehow auto-started: Space on an already-playing dino is
+        # a jump, and the probe just measures distance over time.
+        self._dispatch_key(_KEYDOWN, _KEY_SPACE)
+        self._dispatch_key(_KEYUP, _KEY_SPACE)
+
+        deadline = time.perf_counter() + timeout_s
+        first_distance: float | None = None
+        last_state: dict | None = None
+        while time.perf_counter() < deadline:
+            state = self.read_state()
+            if state is None:
+                time.sleep(poll_s)
+                continue
+            last_state = state
+            playing = bool(state.get("playing"))
+            speed = float(state.get("currentSpeed") or 0.0)
+            distance = float(state.get("distanceRan") or 0.0)
+            if playing and speed > 0:
+                if first_distance is None:
+                    first_distance = distance
+                elif distance > first_distance:
+                    return
+            time.sleep(poll_s)
+
+        raise RuntimeError(
+            f"Browser.sanity_probe: game loop did not advance within "
+            f"{timeout_s}s (last_state={last_state!r}). The page is "
+            f"reachable but the dino is not running \u2014 check "
+            f"visibility/focus state or whether navigation actually "
+            f"loaded the offline page."
+        )    # ------------------------------------------------------------------
     # State reads
     # ------------------------------------------------------------------
 

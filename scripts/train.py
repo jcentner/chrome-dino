@@ -269,6 +269,7 @@ def main(argv: list[str] | None = None) -> int:
     env, browser = _make_env_and_browser()
     try:
         browser.version_check()
+        browser.sanity_probe()
     except Exception:
         browser.close()
         raise
@@ -379,6 +380,7 @@ def main(argv: list[str] | None = None) -> int:
                 # Re-launch training browser after eval.
                 env, browser = _make_env_and_browser()
                 browser.version_check()
+                browser.sanity_probe()
                 model.set_env(env)
         else:
             exit_reason = "step-budget"

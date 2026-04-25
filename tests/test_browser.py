@@ -330,3 +330,55 @@ def test_one_short_episode() -> None:
     assert steps > 0
     assert isinstance(score, int)
     assert score >= 0
+
+
+# ---------------------------------------------------------------------------
+# sanity_probe
+# ---------------------------------------------------------------------------
+
+def test_sanity_probe_passes_when_distance_advances(monkeypatch) -> None:
+    """`sanity_probe()` returns silently when the page reports `playing`
+    with `currentSpeed > 0` AND `distanceRan` strictly increases between
+    two consecutive reads (the game loop is actually ticking).
+    """
+    browser, driver = _make_browser()
+    states = [
+        {"playing": True, "currentSpeed": 6.0, "distanceRan": 100.0},
+        {"playing": True, "currentSpeed": 6.0, "distanceRan": 105.0},
+    ]
+    driver.execute_script.side_effect = lambda *_a, **_k: states.pop(0) if states else states[-1] if not states else None
+    monkeypatch.setattr("src.browser.time.sleep", lambda _s: None)
+    browser.sanity_probe(timeout_s=1.0)
+
+
+def test_sanity_probe_raises_when_page_never_advances(monkeypatch) -> None:
+    """`sanity_probe()` raises `RuntimeError` when the page is reachable
+    but the game loop is paused (currentSpeed=0). Catches the visibility-
+    pinning failure mode that produced two slice-3 hotfixes.
+    """
+    browser, driver = _make_browser()
+    paused = {"playing": False, "currentSpeed": 0.0, "distanceRan": 0.0}
+    driver.execute_script.return_value = paused
+    monkeypatch.setattr("src.browser.time.sleep", lambda _s: None)
+    fake_now = {"t": 0.0}
+    def _now() -> float:
+        fake_now["t"] += 0.5
+        return fake_now["t"]
+    monkeypatch.setattr("src.browser.time.perf_counter", _now)
+    with pytest.raises(RuntimeError, match="game loop did not advance"):
+        browser.sanity_probe(timeout_s=1.0)
+
+
+def test_sanity_probe_dispatches_kickoff_space() -> None:
+    """`sanity_probe()` always sends one Space keydown+keyup to kick the
+    page out of its initial idle, regardless of starting state."""
+    browser, driver = _make_browser()
+    states = [
+        {"playing": True, "currentSpeed": 6.0, "distanceRan": 100.0},
+        {"playing": True, "currentSpeed": 6.0, "distanceRan": 110.0},
+    ]
+    driver.execute_script.side_effect = lambda *_a, **_k: states.pop(0) if states else {"playing": True, "currentSpeed": 6.0, "distanceRan": 200.0}
+    browser.sanity_probe(timeout_s=1.0, poll_s=0.0)
+    events = _cdp_key_events(driver)
+    assert ("keyDown", " ") in events
+    assert ("keyUp", " ") in events
