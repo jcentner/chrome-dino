@@ -30,8 +30,8 @@
 
 ## Workflow State
 
-- **Stage**: executing
-- **Blocked Kind**: n/a
+- **Stage**: blocked
+- **Blocked Kind**: awaiting-human-decision
 - **Phase**: 1
 - **Phase Title**: Real-time browser-native agent to MET
 - **Source Root**: src/
@@ -45,7 +45,7 @@
 - **Implementation Critique Rounds**: 3
 - **Active Slice**: 3
 - **Slice Total**: 6
-- **Blocked Reason**: n/a
+- **Blocked Reason**: Slice 2 shipped (commit 17b40fbd, reviewer pass). Slice 3 is the SB3 DQN training run (>=500k env-steps capped at 3 days wall-clock per impl plan §6 slice 3). Pausing for operator decision on whether to launch the long-running training in the next session, or whether to revisit AC-STOP-GATE / TD-003 first (heuristic baseline = 401, vision-lock v1.1.0 +50 absolute gate is trivially clearable from that floor). Resume with /resume to start slice 3 authoring (ADR-007, src/policy.py, scripts/train.py, tests) without launching training, or escalate the TD-003 disposition first.
 
 ## Slice Evidence
 
