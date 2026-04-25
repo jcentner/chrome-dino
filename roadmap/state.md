@@ -30,8 +30,8 @@
 
 ## Workflow State
 
-- **Stage**: blocked
-- **Blocked Kind**: awaiting-human-decision
+- **Stage**: executing
+- **Blocked Kind**: n/a
 - **Phase**: 1
 - **Phase Title**: Real-time browser-native agent to MET
 - **Source Root**: src/
@@ -45,7 +45,7 @@
 - **Implementation Critique Rounds**: 3
 - **Active Slice**: 3
 - **Slice Total**: 6
-- **Blocked Reason**: Slice 3 authoring half complete (commit 8977bf, reviewer R2 pass). Next is the 4h SB3 DQN training run, operator-launched in a dedicated terminal: python scripts/train.py --total-steps 200000 (or chosen budget). Cannot run synchronously inside an agent session. Resume with /resume after logs/train/<run-id>/eval_means.csv + summary.json exist; the slice-3 evidence half (trajectory analysis + beat-baseline gate per impl 6 slice 3 evidence) follows.
+- **Blocked Reason**: n/a
 
 ## Slice Evidence
 

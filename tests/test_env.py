@@ -403,16 +403,21 @@ def test_step_when_already_terminal_is_noop_no_exception() -> None:
     is ignored: the env returns a valid terminal tuple, raises no exception,
     and (preferably) does not dispatch the action to the browser.
     """
+    initial = _load_fixture("normal_mid_episode.json")
     terminal = _load_fixture("terminal.json")
-    # Reset reads terminal state; subsequent step also reads terminal.
-    browser = _make_fake_browser([terminal, terminal])
+    # Reset enters a non-terminal state (so boot-retry loop succeeds), then
+    # one step transitions to terminal, then a second step is the no-op
+    # contract being pinned here.
+    browser = _make_fake_browser([initial, terminal, terminal])
     env = DinoEnv(browser)
     env.reset()
 
-    # Reset's read should already register as crashed; clear send_action call
-    # history (reset must NOT have dispatched any action — defensive check).
-    browser.send_action.reset_mock()
+    # Step into the terminal state.
+    _obs, _reward, terminated_first, _trunc, _info = env.step(NOOP)
+    assert terminated_first is True
 
+    # Now exercise the no-op-when-terminal contract on the SECOND step.
+    browser.send_action.reset_mock()
     obs, _reward, terminated, truncated, _info = env.step(JUMP)
     assert terminated is True
     assert truncated is False
@@ -455,3 +460,51 @@ def test_random_policy_episode_live_browser() -> None:
 
         assert steps > 0, "episode produced zero steps"
         assert terminated, "episode never reached a terminal state within max_steps"
+
+
+# ---------------------------------------------------------------------------
+# Boot-retry behavior in reset()
+# ---------------------------------------------------------------------------
+
+
+def test_reset_retries_until_page_is_playing(monkeypatch) -> None:
+    """`DinoEnv.reset()` must not return an obs until `playing && !crashed`.
+
+    The dino page sometimes hasn't transitioned to the playing state by the
+    time `Browser.reset_episode()` returns (the page's gameoverClearTime
+    gate after a crash + first-navigation canvas init both delay it). The
+    env's reset must retry until the page is actually live.
+    """
+    not_playing = {**_load_fixture("normal_mid_episode.json"), "playing": False, "crashed": False}
+    playing = _load_fixture("normal_mid_episode.json")
+    # Two not-playing reads, then one playing read. The retry loop must
+    # keep polling read_state across at least one outer reset_episode call.
+    browser = _make_fake_browser([not_playing, not_playing, playing])
+    # Patch time.sleep inside src.env so the test doesn't actually wait.
+    monkeypatch.setattr("src.env.time.sleep", lambda _s: None)
+    env = DinoEnv(browser)
+    obs, _info = env.reset()
+    assert obs.shape == (OBS_DIM,)
+    # reset_episode is called at least once per outer iteration; the loop
+    # may iterate more than once before timing out, so just assert it ran.
+    assert browser.reset_episode.call_count >= 1
+
+
+def test_reset_raises_when_page_never_starts(monkeypatch) -> None:
+    """If the page never enters `playing`, reset() raises RuntimeError
+    rather than returning a frozen-page observation.
+    """
+    paused = {**_load_fixture("normal_mid_episode.json"), "playing": False, "crashed": False}
+    # Always serve the paused state.
+    browser = _make_fake_browser([paused])
+    # Make sleep a no-op AND make perf_counter advance fast so the deadline
+    # fires almost immediately.
+    monkeypatch.setattr("src.env.time.sleep", lambda _s: None)
+    fake_now = {"t": 0.0}
+    def _now():
+        fake_now["t"] += 1.0  # 1s per call
+        return fake_now["t"]
+    monkeypatch.setattr("src.env.time.perf_counter", _now)
+    env = DinoEnv(browser)
+    with pytest.raises(RuntimeError, match="failed to enter playing"):
+        env.reset()

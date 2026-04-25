@@ -172,6 +172,26 @@ class Browser:
 
         service = Service(executable_path=chromedriver_binary)
         driver = webdriver.Chrome(service=service, options=options)
+        # Force the page to behave as if it always has focus. Without this,
+        # the dino game's `onVisibilityChange` handler (bound to
+        # `document.visibilitychange`, `window.blur`, `window.focus`) calls
+        # `Runner.stop()` whenever the OS window loses focus or is
+        # minimized, flipping `playing` to false mid-episode. The env then
+        # observes a frozen game (`currentSpeed=0`, no obstacle motion,
+        # `crashed` never becomes true) and the policy steps indefinitely
+        # against a paused game. `Emulation.setFocusEmulationEnabled`
+        # spoofs the focus state at the renderer level so the game keeps
+        # ticking even when the operator alt-tabs to another window during
+        # a long training run.
+        try:
+            driver.execute_cdp_cmd(
+                "Emulation.setFocusEmulationEnabled", {"enabled": True}
+            )
+        except Exception:
+            # Best-effort. Older Chrome / non-CDP drivers may lack this
+            # domain; the env still works, the operator just must keep the
+            # window in the foreground.
+            pass
         # Trigger offline mode, then navigate to chrome://dino.
         driver.execute_cdp_cmd(
             "Network.emulateNetworkConditions",

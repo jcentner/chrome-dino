@@ -11,6 +11,7 @@ module re-derives observation features.
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 import gymnasium as gym
@@ -50,6 +51,13 @@ MAX_SPEED = 13.0
 
 REWARD_STEP = 1.0
 REWARD_TERMINAL = -100.0
+
+# Boot-retry constants for `reset()`. Mirrors the eval.py loop introduced
+# in slice 1 for the same reason: the dino game's `gameoverClearTime`
+# (1200 ms) gate plus first-navigation canvas init mean Space is not
+# guaranteed to start a fresh episode on the first try.
+_BOOT_TIMEOUT_S = 5.0
+_BOOT_RETRY_INTERVAL_S = 0.25
 
 # Type-id mapping per ADR-003 §3.4. The page's `o.typeConfig.type` field
 # is camelCase ("cactusSmall", "cactusLarge", "pterodactyl") in modern
@@ -163,8 +171,38 @@ class DinoEnv(gym.Env):
         options: dict | None = None,
     ) -> tuple[np.ndarray, dict]:
         super().reset(seed=seed)
-        self._browser.reset_episode()
-        state = self._browser.read_state()
+        # Boot-retry loop: `Browser.reset_episode()` only dispatches Space;
+        # the page's `gameoverClearTime` (1200ms) gate after a crash + the
+        # one-time canvas-init delay on first navigation mean the page is
+        # NOT necessarily `playing && !crashed` immediately after Space.
+        # Without this loop the env returns an obs from a frozen "press
+        # space to play" screen — `currentSpeed=0`, no obstacles, dino at
+        # rest, episode never terminates. Mirrors the eval.py pattern
+        # introduced for the slice-1 manual eval.
+        boot_deadline = time.perf_counter() + _BOOT_TIMEOUT_S
+        while True:
+            self._browser.reset_episode()
+            retry_deadline = time.perf_counter() + _BOOT_RETRY_INTERVAL_S
+            running = False
+            state: dict | None = None
+            while time.perf_counter() < retry_deadline:
+                state = self._browser.read_state()
+                if (
+                    state is not None
+                    and state.get("playing")
+                    and not state.get("crashed")
+                ):
+                    running = True
+                    break
+                time.sleep(0.02)
+            if running:
+                break
+            if time.perf_counter() >= boot_deadline:
+                raise RuntimeError(
+                    f"DinoEnv.reset: page failed to enter playing state within "
+                    f"{_BOOT_TIMEOUT_S}s (last_state={state!r})"
+                )
+        assert state is not None
         self._last_state = state
         self._terminal = bool(state.get("crashed", False))
         obs = _observation_from_state(state)

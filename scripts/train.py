@@ -51,6 +51,12 @@ _DQN_KWARGS: dict[str, Any] = {
     "exploration_final_eps": 0.05,
     "verbose": 1,
     "seed": 42,
+    # `device` is overridden from the CLI flag below; "auto" picks GPU if
+    # torch sees CUDA. For a 14-dim MLP[64,64] the gradient-compute cost
+    # is small relative to env-step latency (Chrome/CDP), so CPU is
+    # often comparable to GPU; the flag exists so the operator can pin
+    # a device explicitly when measuring.
+    "device": "auto",
 }
 
 
@@ -133,6 +139,16 @@ def _build_argparser() -> argparse.ArgumentParser:
         default=20,
         help="Episodes per periodic eval invocation.",
     )
+    parser.add_argument(
+        "--device",
+        choices=["auto", "cpu", "cuda"],
+        default="auto",
+        help="Torch device for SB3. 'auto' picks CUDA if available, else CPU. "
+             "For the [64,64] MLP at 14-dim observation, CPU is often "
+             "comparable to or faster than GPU due to launch overhead — "
+             "the env-step latency (Chrome/CDP round-trip) dominates total "
+             "throughput. Pin explicitly when measuring.",
+    )
     return parser
 
 
@@ -188,12 +204,22 @@ def _run_periodic_eval(
         "--episodes", str(eval_episodes),
         "--out", str(out_path),
     ]
+    # Pass PYTHONPATH so the subprocess can import `src.*` regardless of
+    # how the parent was launched. Inherit the rest of the environment so
+    # CHROME_DINO_RUNTIME and any other operator-set vars survive.
+    sub_env = {**os.environ, "PYTHONPATH": str(_REPO_ROOT)}
     try:
         # Worst-case eval wall-clock: eval_episodes × 300s per-episode cap
         # (the eval.py default --max-episode-seconds) + Chrome cold-launch
         # overhead. Pad generously so the timeout only fires on a true hang.
         eval_timeout_s = max(30 * 60, eval_episodes * 360)
-        subprocess.run(cmd, check=True, timeout=eval_timeout_s)
+        subprocess.run(
+            cmd,
+            check=True,
+            timeout=eval_timeout_s,
+            cwd=str(_REPO_ROOT),
+            env=sub_env,
+        )
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
         print(f"[train] periodic eval failed: {exc}", file=sys.stderr)
         return None
@@ -247,10 +273,12 @@ def main(argv: list[str] | None = None) -> int:
         browser.close()
         raise
 
+    dqn_kwargs = dict(_DQN_KWARGS)
+    dqn_kwargs["device"] = args.device
     model = DQN(
         env=env,
         tensorboard_log=str(run_log_dir / "tb"),
-        **_DQN_KWARGS,
+        **dqn_kwargs,
     )
 
     wall_start = time.monotonic()
