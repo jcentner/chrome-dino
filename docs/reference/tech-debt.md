@@ -73,3 +73,22 @@ After all three fixes the heuristic reaches mean score ≈ **400** over 10 episo
 **Why accepted**: Slice-2 work (env contract) needs fixtures of every scenario, but slice 2 will inevitably re-drive trajectories with finer control — easier to capture the remaining two there than to hand-craft them now.
 **Resolution path**: in slice 2, run capture with a manual driver (forced JUMP/DUCK schedule) to hit `mid_duck` and `near_crash`.
 
+
+### TD-007: `DinoEnv` silently absorbs three corner cases (slice 2 reviewer minors)
+
+**Priority**: Low
+**Introduced**: Phase 1, slice 2 (reviewer findings #2/#3/#4)
+**Description**: Three robustness gaps in `src/env.py`:
+  1. `_obstacle_block` maps unknown `obstacle["type"]` strings to `type_id=-1` while the rest of the 5-tuple stays real, producing an internally inconsistent block (real geometry, sentinel discriminator). A future Chrome obstacle subtype would be silently miscategorized.
+  2. `or 600.0` / `or 0.0` fallbacks on `canvasWidth`, `tRex.yPos`, `currentSpeed` mask page-mid-load corner cases as plausible observations.
+  3. `_info_dict` swallows every exception from `browser.get_score()` and reports `score=0`; a CDP disconnect is indistinguishable from a real zero-score episode.
+**Why accepted**: All three are robustness gaps, not contract violations. The pinned Chrome major (148) ships only the three obstacle types currently mapped, never returns `None` for `canvasWidth` outside teardown, and the `get_score()` JS one-liner is defensive (always returns 0 on missing Runner). The slice-2 contract surface (observation/action/reward/terminal) is correct on every captured fixture and on the live integration test; these are pre-emptive hardening items.
+**Resolution path**: (1) sentinel the entire 5-tuple on unknown type; (2) raise on `canvasWidth in (None, 0)`; (3) narrow the `except` in `_info_dict` or let it propagate so the eval/training loop sees the disconnect. Cheap to do; deferred to keep slice 2 minimal.
+
+### TD-008: `DinoEnv` reward on no-op past-terminal step diverges to -8
+
+**Priority**: Low
+**Introduced**: Phase 1, slice 2 (reviewer finding #5)
+**Description**: `DinoEnv.step` returns `REWARD_TERMINAL = -100.0` on every call after the first terminal, instead of the gymnasium convention of `0.0`. A misbehaving outer loop that keeps stepping past `terminated=True` would see episode reward diverge.
+**Why accepted**: Slice 2 spec (impl §6 task 4) is silent on the magnitude; the test pins `terminated=True` / `truncated=False` but not the reward value. `scripts/eval.py` (slice 1) breaks on `terminated=True`, so the divergence cannot occur in this repo today. Pre-emptive; deferred to slice 4 when training loops enter the picture.
+**Resolution path**: change the no-op-when-terminal branch to return `0.0`; add a regression test pinning the value.
