@@ -55,6 +55,15 @@ const r = (typeof Runner !== 'undefined' && typeof Runner.getInstance === 'funct
   ? (function(){ try { return Runner.getInstance(); } catch (e) { return null; } })()
   : (typeof Runner !== 'undefined' ? Runner.instance_ : null);
 if (!r) { return null; }
+// Last-resort wakeup: if the game is paused (playing=false, !crashed) but
+// has been activated at least once, resume it before snapshotting state.
+// Belt-and-braces against `Browser.launch`'s pre-load visibility pinning;
+// see the comment block in `Browser.launch`. Skipped pre-activation so
+// the boot-retry loop in `DinoEnv.reset` still observes the legitimate
+// pre-kickoff `playing=false` state and dispatches Space.
+if (r.activated && !r.playing && !r.crashed && typeof r.play === 'function') {
+  try { r.play(); } catch (e) {}
+}
 const t = r.tRex;
 const obs = (r.horizon && r.horizon.obstacles) ? r.horizon.obstacles : [];
 function obstacle(o) {
@@ -112,6 +121,37 @@ const r = (typeof Runner !== 'undefined' && typeof Runner.getInstance === 'funct
   ? (function(){ try { return Runner.getInstance(); } catch (e) { return null; } })()
   : (typeof Runner !== 'undefined' ? Runner.instance_ : null);
 return !!(r && r.playing);
+"""
+
+# Injected via `Page.addScriptToEvaluateOnNewDocument` so it runs BEFORE
+# any chrome://dino script. Pins `document.visibilityState='visible'` /
+# `document.hidden=false` and intercepts visibility/blur/pagehide events
+# at the capture phase before the Runner's own bubble-phase listener can
+# call `Runner.stop()`. See `Browser.launch` for context.
+_PIN_VISIBILITY_JS = r"""
+(function () {
+  try {
+    Object.defineProperty(document, 'visibilityState',
+      { configurable: true, get: function () { return 'visible'; } });
+    Object.defineProperty(document, 'hidden',
+      { configurable: true, get: function () { return false; } });
+    Object.defineProperty(document, 'webkitVisibilityState',
+      { configurable: true, get: function () { return 'visible'; } });
+    Object.defineProperty(document, 'webkitHidden',
+      { configurable: true, get: function () { return false; } });
+  } catch (e) { /* property already locked; capture-phase listener still helps */ }
+  function swallow(e) {
+    try { e.stopImmediatePropagation(); } catch (_) {}
+    try { e.stopPropagation(); } catch (_) {}
+  }
+  // Capture phase fires before any bubble-phase listener.
+  document.addEventListener('visibilitychange', swallow, true);
+  document.addEventListener('webkitvisibilitychange', swallow, true);
+  window.addEventListener('blur', swallow, true);
+  window.addEventListener('pagehide', swallow, true);
+  // Override hasFocus too so any code that polls it sees focused.
+  try { document.hasFocus = function () { return true; }; } catch (_) {}
+})();
 """
 
 _USER_AGENT_JS = "return navigator.userAgent;"
@@ -172,25 +212,46 @@ class Browser:
 
         service = Service(executable_path=chromedriver_binary)
         driver = webdriver.Chrome(service=service, options=options)
-        # Force the page to behave as if it always has focus. Without this,
-        # the dino game's `onVisibilityChange` handler (bound to
-        # `document.visibilitychange`, `window.blur`, `window.focus`) calls
-        # `Runner.stop()` whenever the OS window loses focus or is
-        # minimized, flipping `playing` to false mid-episode. The env then
-        # observes a frozen game (`currentSpeed=0`, no obstacle motion,
-        # `crashed` never becomes true) and the policy steps indefinitely
-        # against a paused game. `Emulation.setFocusEmulationEnabled`
-        # spoofs the focus state at the renderer level so the game keeps
-        # ticking even when the operator alt-tabs to another window during
-        # a long training run.
+        # Force the page to behave as if it always has focus. The dino
+        # game's `Runner` constructor wires `onVisibilityChange` to
+        # `document.visibilitychange`, `window.blur`, and `window.focus`
+        # (see chromium-dino-runner skill, "Visibility/focus pitfall").
+        # When the OS window loses focus, `Runner.stop()` is called and
+        # `playing` flips false mid-episode; the env then observes a
+        # frozen game (`currentSpeed=0`, no obstacle motion, `crashed`
+        # never becomes true) and steps indefinitely against a paused
+        # game. The slice-1 manual eval didn't trip this because the
+        # operator watched the window for ~20 episodes; a 4h training
+        # run cannot rely on continuous foreground focus.
+        #
+        # Defense in depth — three independent mitigations:
+        #
+        # 1. CDP `Emulation.setFocusEmulationEnabled` spoofs focus at the
+        #    renderer level (best-effort; not all Chrome builds honor it
+        #    reliably for visibility-change events specifically).
+        # 2. `Page.addScriptToEvaluateOnNewDocument` injects, BEFORE any
+        #    page script runs, a script that pins
+        #    `document.visibilityState = 'visible'` /
+        #    `document.hidden = false` and registers capture-phase
+        #    `visibilitychange` / `blur` / `pagehide` listeners that call
+        #    `stopImmediatePropagation` so the Runner's bubble-phase
+        #    handler never fires. This is the load-bearing fix.
+        # 3. `Runner.getInstance().play()` is called from `read_state`
+        #    whenever `playing` is observed false without `crashed` —
+        #    last-resort wakeup if anything bypasses the event
+        #    suppression.
         try:
             driver.execute_cdp_cmd(
                 "Emulation.setFocusEmulationEnabled", {"enabled": True}
             )
         except Exception:
-            # Best-effort. Older Chrome / non-CDP drivers may lack this
-            # domain; the env still works, the operator just must keep the
-            # window in the foreground.
+            pass
+        try:
+            driver.execute_cdp_cmd(
+                "Page.addScriptToEvaluateOnNewDocument",
+                {"source": _PIN_VISIBILITY_JS},
+            )
+        except Exception:
             pass
         # Trigger offline mode, then navigate to chrome://dino.
         driver.execute_cdp_cmd(

@@ -30,8 +30,8 @@
 
 ## Workflow State
 
-- **Stage**: blocked
-- **Blocked Kind**: awaiting-human-decision
+- **Stage**: executing
+- **Blocked Kind**: n/a
 - **Phase**: 1
 - **Phase Title**: Real-time browser-native agent to MET
 - **Source Root**: src/
@@ -45,7 +45,7 @@
 - **Implementation Critique Rounds**: 3
 - **Active Slice**: 3
 - **Slice Total**: 6
-- **Blocked Reason**: Slice 3 hotfix shipped (commit 7ce2b84c). 47 tests pass; smoke verified end-to-end. Operator: launch the 4h SB3 DQN training run when ready (see CURRENT-STATE.md for the command). Run is operator-launched (cannot run synchronously in agent session). Resume after completion to review results.
+- **Blocked Reason**: n/a
 
 ## Slice Evidence
 
