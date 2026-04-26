@@ -316,9 +316,9 @@ def test_reset_calls_browser_and_returns_obs_info() -> None:
 # ---------------------------------------------------------------------------
 
 def test_reward_per_step_then_terminal() -> None:
-    """Per impl §3.3: reward is `+1.0` per non-terminal step and `-100.0`
-    on the terminal step. Terminal flag mirrors `raw_state["crashed"]`.
-    Truncated is always False.
+    """Per impl §3.3 + slice-4 magnitude tuning: reward is `+0.1` per
+    non-terminal step and `-1.0` on the terminal step. Terminal flag
+    mirrors `raw_state["crashed"]`. Truncated is always False.
     """
     initial = _load_fixture("normal_mid_episode.json")
     survive = _load_fixture("mid_jump.json")
@@ -328,14 +328,14 @@ def test_reward_per_step_then_terminal() -> None:
     env.reset()
 
     obs1, reward1, terminated1, truncated1, info1 = env.step(NOOP)
-    assert reward1 == pytest.approx(1.0)
+    assert reward1 == pytest.approx(0.1)
     assert terminated1 is False
     assert truncated1 is False
     assert obs1.shape == (OBS_DIM,) and obs1.dtype == np.float32
     assert info1.get("score") == 42
 
     obs2, reward2, terminated2, truncated2, info2 = env.step(NOOP)
-    assert reward2 == pytest.approx(-100.0)
+    assert reward2 == pytest.approx(-1.0)
     assert terminated2 is True
     assert truncated2 is False
     assert obs2.shape == (OBS_DIM,) and obs2.dtype == np.float32

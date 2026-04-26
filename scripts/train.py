@@ -326,13 +326,18 @@ def main(argv: list[str] | None = None) -> int:
             )
             steps_done = int(model.num_timesteps)
 
-            # Pull SB3's running ep_rew_mean from the model's logger if
-            # available (SB3 exposes it via model.logger.name_to_value).
+            # SB3's `model.logger.name_to_value` is cleared each dump
+            # cycle, so reading it from the periodic-eval cadence almost
+            # always returned None (slice-3 logging bug). Use the
+            # model's `ep_info_buffer` (deque of recent completed-episode
+            # info dicts) directly — each entry has key `"r"` for reward.
             ep_rew_mean = None
             try:
-                ep_rew_mean = model.logger.name_to_value.get(
-                    "rollout/ep_rew_mean"
-                )
+                buf = getattr(model, "ep_info_buffer", None)
+                if buf:
+                    rewards = [ep["r"] for ep in buf if "r" in ep]
+                    if rewards:
+                        ep_rew_mean = float(sum(rewards) / len(rewards))
             except Exception:
                 pass
             train_writer.writerow(

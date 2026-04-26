@@ -85,18 +85,18 @@ After all three fixes the heuristic reaches mean score ≈ **400** over 10 episo
 **Why accepted**: All three are robustness gaps, not contract violations. The pinned Chrome major (148) ships only the three obstacle types currently mapped, never returns `None` for `canvasWidth` outside teardown, and the `get_score()` JS one-liner is defensive (always returns 0 on missing Runner). The slice-2 contract surface (observation/action/reward/terminal) is correct on every captured fixture and on the live integration test; these are pre-emptive hardening items.
 **Resolution path**: (1) sentinel the entire 5-tuple on unknown type; (2) raise on `canvasWidth in (None, 0)`; (3) narrow the `except` in `_info_dict` or let it propagate so the eval/training loop sees the disconnect. Cheap to do; deferred to keep slice 2 minimal.
 
-### TD-008: `DinoEnv` reward on no-op past-terminal step diverges to -8
+### TD-008: `DinoEnv` reward on no-op past-terminal step does not return 0.0
 
 **Priority**: Low
 **Introduced**: Phase 1, slice 2 (reviewer finding #5)
-**Description**: `DinoEnv.step` returns `REWARD_TERMINAL = -100.0` on every call after the first terminal, instead of the gymnasium convention of `0.0`. A misbehaving outer loop that keeps stepping past `terminated=True` would see episode reward diverge.
+**Description**: `DinoEnv.step` returns `REWARD_TERMINAL` (slice-4: `-1.0`; was `-100.0` slices 2-3) on every call after the first terminal, instead of the gymnasium convention of `0.0`. A misbehaving outer loop that keeps stepping past `terminated=True` would see episode reward diverge.
 **Why accepted**: Slice 2 spec (impl §6 task 4) is silent on the magnitude; the test pins `terminated=True` / `truncated=False` but not the reward value. `scripts/eval.py` (slice 1) breaks on `terminated=True`, so the divergence cannot occur in this repo today. Pre-emptive; deferred to slice 4 when training loops enter the picture.
 **Resolution path**: change the no-op-when-terminal branch to return `0.0`; add a regression test pinning the value.
 
 ### TD-009: `_observation_from_state` is leading-underscore but cross-module-imported
 
 **Priority**: Low
-**Introduced**: Phase 1, slice 3 (reviewer minor � slice-3-authoring round 1)
+**Introduced**: Phase 1, slice 3 (reviewer minor � slice-3-authoring round 1)
 **Description**: `src/env._observation_from_state` is named with a leading underscore (Python convention for module-private), but it's listed in `__all__` and is imported by `scripts/eval.py`'s `_resolve_policy("learned", ...)` adapter to convert raw browser state dicts to the 14-dim env observation before invoking `LearnedPolicy.act`. The leading-underscore name advertises "module-private" but the actual usage is "module-public, second-class API."
 **Why accepted**: Renaming to `observation_from_state` (public) ripples through `tests/test_env.py` (which currently imports the underscored name) and would invalidate the slice-2 contract pinning. The leading-underscore name is at worst a code-style nit; the function's purity and stability are pinned by tests regardless of name.
 **Resolution path**: rename in a single commit when slice 4 or later already touches both files; update the import in `scripts/eval.py` and the import + symbol references in `tests/test_env.py`.
@@ -104,7 +104,15 @@ After all three fixes the heuristic reaches mean score ≈ **400** over 10 episo
 ### TD-010: `_git_sha` duplicated between `scripts/train.py` and `scripts/eval.py`
 
 **Priority**: Low
-**Introduced**: Phase 1, slice 3 (reviewer nit � slice-3-authoring round 1)
+**Introduced**: Phase 1, slice 3 (reviewer nit � slice-3-authoring round 1)
 **Description**: Both `scripts/train.py` and `scripts/eval.py` define an identical `_git_sha()` helper that runs `git rev-parse HEAD` with the same timeout / fallback. Two copies, one truth.
 **Why accepted**: Each is ~10 lines; abstracting them into `src/_git.py` is an architecturally-larger-than-the-fix change for a function that is unlikely to drift (it has no tunable behavior). The slice-3 review explicitly classed this a Nit, not a defect.
 **Resolution path**: introduce `src/_git.py::git_sha()`; delete both local copies; one trivial test pinning the function returns either a 40-char hex string or `"unknown"`.
+
+### TD-011: ε-greedy exploration schedule is effectively a no-op under chunked `model.learn`
+
+**Priority**: High
+**Introduced**: Phase 1, slice 3 (latent); surfaced by slice-4 reviewer R1
+**Description**: `scripts/train.py` calls `model.learn(total_timesteps=chunk, reset_num_timesteps=False)` in a loop where each chunk runs to the next checkpoint or eval boundary (default `eval_every=50_000` ≈ 41-min chunks at slice-3 throughput). SB3's DQN computes its linear-decay ε schedule against the *current* `learn` call's progress: it sets `_total_timesteps = num_timesteps + chunk` at the start of each call, so the ε schedule restarts from the chunk's start. From chunk 2 onward, `progress_remaining` collapses fast enough that ε reaches `exploration_final_eps = 0.05` near the start of every chunk and stays there. Net effect: the agent does ~`learning_starts` random steps in chunk 1, then plays at fixed ε=0.05 for the entire 4h budget. `exploration_fraction` is essentially ignored.
+**Why accepted (for slice 4)**: The slice-3 diagnosis (Q-collapse from -100 terminal magnitude) does not depend on ε scheduling — even pure-random play at ε=0.05 was producing 50-mean eval, so the reward magnitude is the right primary variable to test. Fixing the ε plumbing is its own variable and would compete with reward reshaping for attribution. Slice 5 candidate (one bounded change next time).
+**Resolution path**: replace the chunked `model.learn` loop with a single `model.learn(total_timesteps=total_steps, callback=...)` call where the callback handles checkpointing + periodic eval (subclass `BaseCallback` with `_on_step` writing a CSV row, saving a checkpoint, and conditionally launching subprocess eval). This way `_total_timesteps` is set once at the budget and the linear ε schedule decays over `exploration_fraction × total_steps` as documented. Per-step wall-clock cap callback already works with this pattern.

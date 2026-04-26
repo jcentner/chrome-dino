@@ -49,8 +49,8 @@ CANVAS_HEIGHT = 150.0
 TREX_XPOS = 21.0
 MAX_SPEED = 13.0
 
-REWARD_STEP = 1.0
-REWARD_TERMINAL = -100.0
+REWARD_STEP = 0.1
+REWARD_TERMINAL = -1.0
 
 # Boot-retry constants for `reset()`. Mirrors the eval.py loop introduced
 # in slice 1 for the same reason: the dino game's `gameoverClearTime`
@@ -135,7 +135,7 @@ class DinoEnv(gym.Env):
         returns `(obs, info)`.
       - `step(action)`: forwards `action` to `browser.send_action`, reads
         next state, returns `(obs, reward, terminated, truncated, info)`
-        with `truncated == False` always; reward `+1` per step, `-100`
+        with `truncated == False` always; reward `+0.1` per step, `-1.0`
         on the terminal step. If the env is already terminal, the action
         is ignored (no `send_action` dispatch) and the env surfaces a
         no-op terminal step.
